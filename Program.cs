@@ -38,19 +38,14 @@ namespace FToolByTratox
         [DllImport("user32.dll")]
         static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        // Messages pour Flyff
         const uint WM_KEYDOWN = 0x0100;
         const uint WM_KEYUP = 0x0101;
         const uint WM_CHAR = 0x0102;
         const int WM_HOTKEY = 0x0312;
-
-        // Modificateurs pour les hotkeys
         const uint MOD_ALT = 0x0001;
         const uint MOD_CONTROL = 0x0002;
         const uint MOD_SHIFT = 0x0004;
         const uint MOD_WIN = 0x0008;
-
-        // Constantes pour le redimensionnement
         private const int WM_NCHITTEST = 0x84;
         private const int HTCLIENT = 1;
         private const int HTLEFT = 10;
@@ -63,25 +58,22 @@ namespace FToolByTratox
         private const int HTBOTTOMRIGHT = 17;
         private const int HTCAPTION = 2;
 
-        // Codes de touches virtuelles pour Flyff
         private static readonly Dictionary<string, uint> VirtualKeys = new Dictionary<string, uint>
         {
             {"F1", 112}, {"F2", 113}, {"F3", 114}, {"F4", 115}, {"F5", 116},
             {"F6", 117}, {"F7", 118}, {"F8", 119}, {"F9", 120},
             {"1", 49}, {"2", 50}, {"3", 51}, {"4", 52}, {"5", 53},
             {"6", 54}, {"7", 55}, {"8", 56}, {"9", 57},
-            // Pavé numérique
+
             {"Num0", 96}, {"Num1", 97}, {"Num2", 98}, {"Num3", 99}, {"Num4", 100},
             {"Num5", 101}, {"Num6", 102}, {"Num7", 103}, {"Num8", 104}, {"Num9", 105},
             {"NumPlus", 107}, {"NumMinus", 109}, {"NumMultiply", 106}, {"NumDivide", 111},
             {"NumDecimal", 110}, {"NumEnter", 13},
             
-            // Touches supplémentaires utiles
             {"Space", 32}, {"Enter", 13}, {"Tab", 9}, {"Escape", 27},
             {"Backspace", 8}, {"Delete", 46}, {"Insert", 45},
             {"Home", 36}, {"End", 35}, {"PageUp", 33}, {"PageDown", 34},
-            
-            // Lettres (A-Z)
+
             {"A", 65}, {"B", 66}, {"C", 67}, {"D", 68}, {"E", 69}, {"F", 70},
             {"G", 71}, {"H", 72}, {"I", 73}, {"J", 74}, {"K", 75}, {"L", 76},
             {"M", 77}, {"N", 78}, {"O", 79}, {"P", 80}, {"Q", 81}, {"R", 82},
@@ -89,8 +81,6 @@ namespace FToolByTratox
             {"Y", 89}, {"Z", 90}
 
         };
-
-        // Dictionnaire pour convertir les codes de touches en noms
         private static readonly Dictionary<Keys, string> KeyNames = new Dictionary<Keys, string>();
 
         public class SpammerData
@@ -134,12 +124,8 @@ namespace FToolByTratox
         private Button closeBtn;
         private SettingsData settings = new SettingsData();
         private Dictionary<int, Keys> registeredHotKeys = new Dictionary<int, Keys>();
-
-        // Variables pour le déplacement de fenêtre
         private Point mouseLocation;
         private bool isDragging = false;
-
-        // Palette Opera GX inspirée
         private readonly Color PrimaryBackground = Color.FromArgb(255, 26, 26, 35);
         private readonly Color SecondaryBackground = Color.FromArgb(255, 35, 35, 50);
         private readonly Color CardBackground = Color.FromArgb(255, 45, 45, 65);
@@ -160,8 +146,6 @@ namespace FToolByTratox
             InitializeKeyNames();
             InitializeComponent();
         }
-
-        // Override de WndProc pour gérer le redimensionnement et les hotkeys
         protected override void WndProc(ref Message m)
         {
             switch (m.Msg)
@@ -170,11 +154,7 @@ namespace FToolByTratox
                     base.WndProc(ref m);
                     Point pos = new Point(m.LParam.ToInt32());
                     pos = this.PointToClient(pos);
-
-                    // Taille de la zone de redimensionnement
                     int resizeBorder = 8;
-
-                    // Coins
                     if (pos.X <= resizeBorder && pos.Y <= resizeBorder)
                         m.Result = new IntPtr(HTTOPLEFT);
                     else if (pos.X >= this.Width - resizeBorder && pos.Y <= resizeBorder)
@@ -183,7 +163,6 @@ namespace FToolByTratox
                         m.Result = new IntPtr(HTBOTTOMLEFT);
                     else if (pos.X >= this.Width - resizeBorder && pos.Y >= this.Height - resizeBorder)
                         m.Result = new IntPtr(HTBOTTOMRIGHT);
-                    // Bords
                     else if (pos.X <= resizeBorder)
                         m.Result = new IntPtr(HTLEFT);
                     else if (pos.X >= this.Width - resizeBorder)
@@ -211,7 +190,6 @@ namespace FToolByTratox
 
         private void InitializeKeyNames()
         {
-            // Initialiser le dictionnaire des noms de touches
             KeyNames[Keys.A] = "A"; KeyNames[Keys.B] = "B"; KeyNames[Keys.C] = "C"; KeyNames[Keys.D] = "D";
             KeyNames[Keys.E] = "E"; KeyNames[Keys.F] = "F"; KeyNames[Keys.G] = "G"; KeyNames[Keys.H] = "H";
             KeyNames[Keys.I] = "I"; KeyNames[Keys.J] = "J"; KeyNames[Keys.K] = "K"; KeyNames[Keys.L] = "L";
@@ -242,11 +220,9 @@ namespace FToolByTratox
         private void InitializeComponent()
         {
             this.SuspendLayout();
-
-            // Configuration fenêtre principale
             this.Text = "FTool by Tratox v1.0";
-            this.Size = new Size(520, 730); // Augmenté de 520x720 à 620x800
-            this.MinimumSize = new Size(520, 650); // Augmenté de 480x600 à 580x750
+            this.Size = new Size(520, 730);
+            this.MinimumSize = new Size(520, 650);
             this.BackColor = PrimaryBackground;
             this.ForeColor = TextPrimary;
             this.FormBorderStyle = FormBorderStyle.None;
@@ -257,14 +233,10 @@ namespace FToolByTratox
 
             CreateCustomTitleBar();
             CreateMainInterface();
-
-            // Timers
             windowCheckTimer = new System.Windows.Forms.Timer { Interval = 2000, Enabled = true };
             windowCheckTimer.Tick += CheckWindowsExist;
-
             statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 1000, Enabled = true };
             statusUpdateTimer.Tick += UpdateStatus;
-
             LoadSettings();
             this.FormClosing += MainForm_FormClosing;
             this.Resize += MainForm_Resize;
@@ -282,13 +254,9 @@ namespace FToolByTratox
                 BackColor = Color.Transparent,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-
-            // Ajouter les gestionnaires d'événements de la souris à la barre de titre
             titleBar.MouseDown += TitleBar_MouseDown;
             titleBar.MouseMove += TitleBar_MouseMove;
             titleBar.MouseUp += TitleBar_MouseUp;
-
-            // Logo et titre
             Label logoLabel = new Label
             {
                 Text = "⚡",
@@ -298,7 +266,6 @@ namespace FToolByTratox
                 Size = new Size(25, 25),
                 BackColor = Color.Transparent
             };
-            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
             logoLabel.MouseDown += TitleBar_MouseDown;
             logoLabel.MouseMove += TitleBar_MouseMove;
             logoLabel.MouseUp += TitleBar_MouseUp;
@@ -313,7 +280,6 @@ namespace FToolByTratox
                 Size = new Size(150, 20),
                 BackColor = Color.Transparent
             };
-            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
             titleLabel.MouseDown += TitleBar_MouseDown;
             titleLabel.MouseMove += TitleBar_MouseMove;
             titleLabel.MouseUp += TitleBar_MouseUp;
@@ -327,12 +293,9 @@ namespace FToolByTratox
                 Size = new Size(30, 15),
                 BackColor = Color.Transparent
             };
-            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
             versionLabel.MouseDown += TitleBar_MouseDown;
             versionLabel.MouseMove += TitleBar_MouseMove;
             versionLabel.MouseUp += TitleBar_MouseUp;
-
-            // Boutons de contrôle avec positionnement correct
             minimizeBtn = new ModernControlButton
             {
                 Text = "─",
@@ -397,7 +360,6 @@ namespace FToolByTratox
             this.Close();
         }
 
-        // Gestionnaires d'événements pour le déplacement de la fenêtre
         private void TitleBar_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -424,7 +386,6 @@ namespace FToolByTratox
 
         private void CreateMainInterface()
         {
-            // Header avec statistiques
             Panel headerPanel = new GradientPanel
             {
                 Location = new Point(0, 35),
@@ -447,8 +408,8 @@ namespace FToolByTratox
             masterStartStopButton = new NeonButton
             {
                 Text = "🚀 START ALL",
-                Location = new Point(this.Width - 180, 15), // Ajusté pour la nouvelle largeur
-                Size = new Size(150, 35), // Légèrement plus large
+                Location = new Point(this.Width - 180, 15),
+                Size = new Size(150, 35),
                 BackColor = AccentGreen,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
@@ -471,19 +432,16 @@ namespace FToolByTratox
                 connectionStatusLabel, masterStartStopButton, statsLabel
             });
             this.Controls.Add(headerPanel);
-
-            // TabControl avec style gaming
             tabControl = new GamingTabControl
             {
                 Location = new Point(15, 140),
-                Size = new Size(590, 630), // Augmenté de 490x550 à 590x630
+                Size = new Size(590, 630), 
                 BackColor = PrimaryBackground,
                 ForeColor = TextPrimary,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             this.Controls.Add(tabControl);
 
-            // Créer les onglets spammers
             for (int i = 1; i <= 4; i++)
             {
                 TabPage tab = new TabPage($"💀 Spammer {i}")
@@ -497,7 +455,7 @@ namespace FToolByTratox
                 GamingScrollablePanel scrollPanel = new GamingScrollablePanel
                 {
                     Location = new Point(0, 0),
-                    Size = new Size(483, 515),
+                    Size = new Size(583, 515),
                     BackColor = PrimaryBackground,
                     Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
                     AutoScroll = true,
@@ -516,8 +474,6 @@ namespace FToolByTratox
 
                 tabControl.TabPages.Add(tab);
             }
-
-            // Créer l'onglet paramètres
             CreateSettingsTab();
         }
 
@@ -543,7 +499,6 @@ namespace FToolByTratox
                 ScrollbarBackColor = SecondaryBackground
             };
 
-            // Titre principal
             Label mainTitle = new Label
             {
                 Text = "🎮 Global Hotkeys Configuration",
@@ -555,7 +510,6 @@ namespace FToolByTratox
             };
             settingsPanel.Controls.Add(mainTitle);
 
-            // Section Master Controls
             Panel masterControlsPanel = new GlassCard
             {
                 Location = new Point(10, 60),
@@ -573,7 +527,6 @@ namespace FToolByTratox
                 BackColor = Color.Transparent
             };
 
-            // Master Start/Stop hotkey
             Label masterStartLabel = new Label
             {
                 Text = "Start All Spammers:",
@@ -603,7 +556,6 @@ namespace FToolByTratox
             };
             masterStartClearBtn.Click += ClearHotkey_Click;
 
-            // Master Stop hotkey
             Label masterStopLabel = new Label
             {
                 Text = "Stop All Spammers:",
@@ -634,12 +586,11 @@ namespace FToolByTratox
             masterStopClearBtn.Click += ClearHotkey_Click;
 
             masterControlsPanel.Controls.AddRange(new Control[] {
-                masterTitle, masterStartLabel, masterStartHotkeyBtn, masterStartClearBtn,
-                masterStopLabel, masterStopHotkeyBtn, masterStopClearBtn
+            masterTitle, masterStartLabel, masterStartHotkeyBtn, masterStartClearBtn,
+            masterStopLabel, masterStopHotkeyBtn, masterStopClearBtn
             });
             settingsPanel.Controls.Add(masterControlsPanel);
 
-            // Section Individual Spammers
             Label spammersTitle = new Label
             {
                 Text = "⚔️ Individual Spammer Hotkeys",
@@ -651,12 +602,11 @@ namespace FToolByTratox
             };
             settingsPanel.Controls.Add(spammersTitle);
 
-            // Créer les contrôles pour chaque spammer
             for (int i = 0; i < 20; i++)
             {
                 int row = i / 2;
                 int col = i % 2;
-                int yPos = 240 + (row * 80);
+                int yPos = 240 + (row * 90);
                 int xPos = 10 + (col * 225);
 
                 Panel spammerPanel = new GlassCard
@@ -698,15 +648,14 @@ namespace FToolByTratox
                 spammerClearBtn.Click += ClearHotkey_Click;
 
                 spammerPanel.Controls.AddRange(new Control[] {
-                    spammerLabel, spammerHotkeyBtn, spammerClearBtn
+                spammerLabel, spammerHotkeyBtn, spammerClearBtn
                 });
                 settingsPanel.Controls.Add(spammerPanel);
             }
 
-            // Section Options
             Panel optionsPanel = new GlassCard
             {
-                Location = new Point(10, 680),
+                Location = new Point(10, 1525),
                 Size = new Size(450, 100),
                 BackColor = CardBackground
             };
@@ -738,17 +687,16 @@ namespace FToolByTratox
                 SaveSettings();
             };
 
-            // La CheckBox pour les notifications est supprimée.
-
             optionsPanel.Controls.AddRange(new Control[] {
-                optionsTitle, enableHotkeysCheckBox
+            optionsTitle, enableHotkeysCheckBox
             });
             settingsPanel.Controls.Add(optionsPanel);
+
+            settingsPanel.AutoScrollMinSize = new Size(0, 1200);
 
             settingsTab.Controls.Add(settingsPanel);
             tabControl.TabPages.Add(settingsTab);
         }
-
         private void HotkeyButton_Click(object sender, EventArgs e)
         {
             Button btn = sender as Button;
@@ -759,8 +707,6 @@ namespace FToolByTratox
             {
                 string hotkeyString = captureForm.CapturedHotkey;
                 btn.Text = hotkeyString;
-
-                // Sauvegarder la nouvelle hotkey
                 if (tag == "MasterStart")
                 {
                     settings.MasterStartHotKey = hotkeyString;
@@ -820,8 +766,6 @@ namespace FToolByTratox
             RegisterAllHotKeys();
             SaveSettings();
         }
-
-        // Méthode helper pour mettre à jour le texte d'un bouton hotkey
         private void UpdateHotkeyButtonText(string targetTag, string newText)
         {
             foreach (Control control in GetAllControls(tabControl))
@@ -852,8 +796,6 @@ namespace FToolByTratox
             if (!settings.EnableGlobalHotKeys) return;
 
             int hotkeyId = 1;
-
-            // Enregistrer Master Start hotkey
             if (!string.IsNullOrEmpty(settings.MasterStartHotKey))
             {
                 var (modifiers, key) = ParseHotkey(settings.MasterStartHotKey);
@@ -864,8 +806,6 @@ namespace FToolByTratox
                     hotkeyId++;
                 }
             }
-
-            // Enregistrer Master Stop hotkey
             if (!string.IsNullOrEmpty(settings.MasterStopHotKey))
             {
                 var (modifiers, key) = ParseHotkey(settings.MasterStopHotKey);
@@ -876,8 +816,6 @@ namespace FToolByTratox
                     hotkeyId++;
                 }
             }
-
-            // Enregistrer les hotkeys des spammers
             for (int i = 0; i < spammers.Count; i++)
             {
                 string hotkey = settings.SpammerHotKeys.ContainsKey(i) ? settings.SpammerHotKeys[i] : "";
@@ -894,7 +832,6 @@ namespace FToolByTratox
                 }
             }
         }
-
         private void UnregisterAllHotKeys()
         {
             foreach (var kvp in registeredHotKeys)
@@ -902,14 +839,11 @@ namespace FToolByTratox
                 UnregisterHotKey(this.Handle, kvp.Key);
             }
             registeredHotKeys.Clear();
-
-            // Réinitialiser les IDs des spammers
             foreach (var spammer in spammers)
             {
                 spammer.HotKeyId = -1;
             }
         }
-
         private (uint modifiers, Keys key) ParseHotkey(string hotkeyString)
         {
             if (string.IsNullOrEmpty(hotkeyString)) return (0, Keys.None);
@@ -937,7 +871,6 @@ namespace FToolByTratox
                         modifiers |= MOD_WIN;
                         break;
                     default:
-                        // Fixed: Use a local variable for the out parameter
                         Keys parsedKey;
                         if (Enum.TryParse(trimmedPart, true, out parsedKey))
                         {
@@ -949,25 +882,22 @@ namespace FToolByTratox
 
             return (modifiers, key);
         }
-
         private void HandleHotkey(int hotkeyId)
         {
             if (!registeredHotKeys.ContainsKey(hotkeyId)) return;
 
-            // Vérifier si c'est une hotkey master
-            if (hotkeyId == 1 && !string.IsNullOrEmpty(settings.MasterStartHotKey)) // Master Start
+            if (hotkeyId == 1 && !string.IsNullOrEmpty(settings.MasterStartHotKey))
             {
                 MasterStartStop_Click(null, null);
                 return;
             }
 
-            if (hotkeyId == 2 && !string.IsNullOrEmpty(settings.MasterStopHotKey)) // Master Stop
+            if (hotkeyId == 2 && !string.IsNullOrEmpty(settings.MasterStopHotKey))
             {
                 MasterStartStop_Click(null, null);
                 return;
             }
 
-            // Vérifier si c'est une hotkey de spammer
             for (int i = 0; i < spammers.Count; i++)
             {
                 if (spammers[i].HotKeyId == hotkeyId)
@@ -1045,7 +975,6 @@ namespace FToolByTratox
             spammer.ActionsLabel = actionsLabel;
             card.Controls.Add(actionsLabel);
 
-            // Hotkey indicator
             Label hotkeyLabel = new Label
             {
                 Text = "No hotkey",
@@ -1057,7 +986,6 @@ namespace FToolByTratox
             };
             card.Controls.Add(hotkeyLabel);
 
-            // Bouton Start/Stop
             Button startButton = new GamingButton
             {
                 Text = "▶️ START",
@@ -1088,12 +1016,12 @@ namespace FToolByTratox
             spammer.WindowCombo = windowCombo;
             card.Controls.Add(windowCombo);
 
-            CreateCompactLabel(card, "INT", 235, 26, new Font("Segoe UI", 10, FontStyle.Bold)); // Police plus grande (10) et position Y légèrement ajustée
+            CreateCompactLabel(card, "INT", 235, 26, new Font("Segoe UI", 10, FontStyle.Bold));
             TextBox intervalText = new GamingTextBox
             {
                 Text = "0",
                 Location = new Point(235, 47),
-                Size = new Size(45, 25), // ← Cette hauteur sera maintenant respectée !
+                Size = new Size(45, 25),
                 BackColor = SecondaryBackground,
                 ForeColor = TextPrimary,
                 Font = new Font("Segoe UI", 8)
@@ -1150,8 +1078,6 @@ namespace FToolByTratox
             card.Controls.Add(resetButton);
 
             spammers.Add(spammer);
-
-            // Mettre à jour l'affichage de la hotkey
             UpdateSpammerHotkeyDisplay(index, hotkeyLabel);
         }
 
@@ -1175,9 +1101,9 @@ namespace FToolByTratox
             {
                 Text = text,
                 Location = new Point(x, y),
-                Size = new Size(60, 16), // Hauteur augmentée pour accommoder le texte plus grand
+                Size = new Size(60, 16),
                 ForeColor = TextSecondary,
-                Font = customFont ?? new Font("Segoe UI", 6, FontStyle.Bold), // Police par défaut ou personnalisée
+                Font = customFont ?? new Font("Segoe UI", 6, FontStyle.Bold),
                 BackColor = Color.Transparent
             };
             parent.Controls.Add(label);
@@ -1200,7 +1126,6 @@ namespace FToolByTratox
             }
             SaveSettings();
         }
-
         private void ResetSpammer(int index)
         {
             if (spammers[index].IsRunning)
@@ -1214,7 +1139,6 @@ namespace FToolByTratox
             spammers[index].ActionsLabel.Text = "Actions: 0";
             SaveSettings();
         }
-
         private void MasterStartStop_Click(object sender, EventArgs e)
         {
             bool anyRunning = spammers.Any(s => s.IsRunning);
@@ -1253,7 +1177,6 @@ namespace FToolByTratox
                 }
             }
         }
-
         private bool IsValidConfiguration(int index)
         {
             var spammer = spammers[index];
@@ -1264,7 +1187,6 @@ namespace FToolByTratox
             return window != "Select Window" && !string.IsNullOrEmpty(window) &&
                    ((fkey != " " && !string.IsNullOrEmpty(fkey)) || (skill != " " && !string.IsNullOrEmpty(skill)));
         }
-
         private void UpdateStatus(object sender, EventArgs e)
         {
             var processes = Process.GetProcessesByName("Neuz");
@@ -1315,7 +1237,6 @@ namespace FToolByTratox
                 StopSpammer(index);
             }
         }
-
         private void StartSpammer(int index)
         {
             SpammerData spammer = spammers[index];
@@ -1346,7 +1267,7 @@ namespace FToolByTratox
                         break;
                     }
                 }
-                catch { /* Ignorer les erreurs d'accès aux processus */ }
+                catch {}
             }
 
             if (!windowFound)
@@ -1444,7 +1365,6 @@ namespace FToolByTratox
 
             try
             {
-                // Optimisation: Éviter les appels inutiles si aucune touche n'est configurée
                 if (!hasFKey && !hasSkill) return;
 
                 if (hasSkill && VirtualKeys.TryGetValue(skill, out uint skillKeyCode))
@@ -1454,7 +1374,7 @@ namespace FToolByTratox
 
                     if (hasFKey)
                     {
-                        Thread.Sleep(150); // Délai entre les touches F-Key et Skill
+                        Thread.Sleep(150);
                     }
                 }
 
@@ -1474,14 +1394,11 @@ namespace FToolByTratox
         {
             try
             {
-                // Tenter d'abord PostMessage, puis SendMessage en fallback
                 bool success = PostMessage(windowHandle, WM_KEYDOWN, new IntPtr(virtualKeyCode), IntPtr.Zero);
                 if (!success)
                 {
                     SendMessage(windowHandle, WM_KEYDOWN, new IntPtr(virtualKeyCode), IntPtr.Zero);
                 }
-                // Pas besoin d'envoyer WM_KEYUP immédiatement après WM_KEYDOWN pour Flyff,
-                // le jeu gère généralement le relâchement de la touche.
             }
             catch (Exception ex)
             {
@@ -1500,7 +1417,7 @@ namespace FToolByTratox
                 spammer.SpamTimer = null;
                 spammer.IsRunning = false;
             }
-            catch { /* Ignorer les erreurs de dispose si le timer est déjà null ou en cours de dispose */ }
+            catch {}
 
             spammer.TargetWindowHandle = IntPtr.Zero;
             spammer.WindowTitle = "";
@@ -1542,10 +1459,8 @@ namespace FToolByTratox
                         windowTitles.Add(proc.MainWindowTitle);
                     }
                 }
-                catch { /* Ignorer les erreurs d'accès aux processus */ }
+                catch {}
             }
-
-            // Optimisation: Utiliser FindStringExact pour une correspondance exacte et éviter les boucles
             int selectedIndex = combo.FindStringExact(currentSelection);
             if (selectedIndex != -1)
             {
@@ -1577,7 +1492,6 @@ namespace FToolByTratox
                 }
             }
         }
-
         private void LoadSettings()
         {
             if (!File.Exists(settingsFile)) return;
@@ -1608,7 +1522,6 @@ namespace FToolByTratox
                     }
                 }
 
-                // Charger les paramètres généraux
                 if (settingsDict.ContainsKey("General"))
                 {
                     var generalSettings = settingsDict["General"];
@@ -1625,10 +1538,8 @@ namespace FToolByTratox
                         if (bool.TryParse(generalSettings["EnableGlobalHotKeys"], out enableGlobalHotKeys))
                             settings.EnableGlobalHotKeys = enableGlobalHotKeys;
                     }
-                    // La lecture de ShowNotifications est supprimée.
                 }
 
-                // Charger les hotkeys des spammers
                 if (settingsDict.ContainsKey("HotKeys"))
                 {
                     var hotkeySettings = settingsDict["HotKeys"];
@@ -1644,7 +1555,6 @@ namespace FToolByTratox
                     }
                 }
 
-                // Charger les paramètres des spammers
                 for (int i = 0; i < spammers.Count; i++)
                 {
                     string section = $"Spammer{i + 1}";
@@ -1701,16 +1611,12 @@ namespace FToolByTratox
                                 spammer.SkillCombo.SelectedIndex = 0;
                             }
                         }
-
-                        // Charger la hotkey du spammer
                         if (settings.SpammerHotKeys.ContainsKey(i))
                         {
                             spammer.HotKey = settings.SpammerHotKeys[i];
                         }
                     }
                 }
-
-                // Mettre à jour l'affichage des boutons de hotkeys après le chargement
                 if (tabControl != null && tabControl.TabPages.Count > 0)
                 {
                     foreach (Control control in GetAllControls(tabControl))
@@ -1718,8 +1624,6 @@ namespace FToolByTratox
                         if (control is Button hotkeyBtn && hotkeyBtn.Tag != null)
                         {
                             string tag = hotkeyBtn.Tag.ToString();
-
-                            // Ignorer les boutons "Clear" qui ont le même tag mais sont des ModernMiniButton
                             if (hotkeyBtn is ModernMiniButton) continue;
 
                             if (tag == "MasterStart")
@@ -1742,8 +1646,6 @@ namespace FToolByTratox
                         }
                     }
                 }
-
-                // Enregistrer les hotkeys si activées
                 if (settings.EnableGlobalHotKeys)
                 {
                     RegisterAllHotKeys();
@@ -1766,24 +1668,17 @@ namespace FToolByTratox
                     writer.WriteLine("; FTool by Tratox - Opera GX Edition");
                     writer.WriteLine("; Auto-generated on " + DateTime.Now);
                     writer.WriteLine();
-
-                    // Section General
                     writer.WriteLine("[General]");
                     writer.WriteLine($"MasterStartHotKey={settings.MasterStartHotKey}");
                     writer.WriteLine($"MasterStopHotKey={settings.MasterStopHotKey}");
                     writer.WriteLine($"EnableGlobalHotKeys={settings.EnableGlobalHotKeys}");
-                    // L'écriture de ShowNotifications est supprimée.
                     writer.WriteLine();
-
-                    // Section HotKeys
                     writer.WriteLine("[HotKeys]");
                     foreach (var kvp in settings.SpammerHotKeys)
                     {
                         writer.WriteLine($"Spammer{kvp.Key + 1}={kvp.Value}");
                     }
                     writer.WriteLine();
-
-                    // Sections Spammers
                     for (int i = 0; i < spammers.Count; i++)
                     {
                         var spammer = spammers[i];
@@ -1814,7 +1709,6 @@ namespace FToolByTratox
                 Debug.WriteLine($"Error saving settings: {ex.Message}");
             }
         }
-
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             for (int i = 0; i < spammers.Count; i++)
@@ -1824,10 +1718,8 @@ namespace FToolByTratox
                     StopSpammer(i);
                 }
             }
-
             UnregisterAllHotKeys();
             SaveSettings();
-
             windowCheckTimer?.Stop();
             windowCheckTimer?.Dispose();
             statusUpdateTimer?.Stop();
@@ -1867,7 +1759,6 @@ namespace FToolByTratox
                 this.SetStyle(ControlStyles.DoubleBuffer, true);
                 this.SetStyle(ControlStyles.ResizeRedraw, true);
             }
-
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
@@ -1878,7 +1769,6 @@ namespace FToolByTratox
                     DrawCustomScrollbar(e.Graphics);
                 }
             }
-
             private void DrawCustomScrollbar(Graphics g)
             {
                 if (!showCustomScrollbar) return;
@@ -1891,7 +1781,7 @@ namespace FToolByTratox
                     g.FillRectangle(bgBrush, scrollRect);
                 }
 
-                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarBackColor), 1)) // Changed to ScrollbarBackColor for consistency
+                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarBackColor), 1))
                 {
                     g.DrawRectangle(borderPen, scrollRect);
                 }
@@ -1900,8 +1790,6 @@ namespace FToolByTratox
                 {
                     int contentHeight = this.AutoScrollMinSize.Height;
                     int visibleHeight = this.ClientSize.Height;
-
-                    // Optimisation: Éviter la division par zéro
                     int scrollMax = Math.Max(1, this.VerticalScroll.Maximum);
                     int thumbHeight = Math.Max(20, (visibleHeight * visibleHeight) / Math.Max(contentHeight, visibleHeight));
                     int scrollRange = this.Height - thumbHeight - 4;
@@ -1910,12 +1798,12 @@ namespace FToolByTratox
                     Rectangle thumbRect = new Rectangle(this.Width - 13, thumbTop, 11, thumbHeight);
 
                     using (LinearGradientBrush thumbBrush = new LinearGradientBrush(
-                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical)) // Use RGB from ScrollbarColor
+                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical))
                     {
                         g.FillRoundedRectangle(thumbBrush, thumbRect, 5);
                     }
 
-                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2)) // Use RGB from ScrollbarColor
+                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2))
                     {
                         Rectangle glowRect = new Rectangle(thumbRect.X - 1, thumbRect.Y - 1, thumbRect.Width + 2, thumbRect.Height + 2);
                         g.DrawRoundedRectangle(glowPen, glowRect, 6);
@@ -1928,18 +1816,16 @@ namespace FToolByTratox
                     }
                 }
             }
-
             protected override void WndProc(ref Message m)
             {
                 base.WndProc(ref m);
 
-                if (m.Msg == 0x20A || m.Msg == 0x115) // WM_MOUSEWHEEL ou WM_VSCROLL
+                if (m.Msg == 0x20A || m.Msg == 0x115)
                 {
                     this.Invalidate();
                 }
             }
         }
-
         public class GlassCard : Panel
         {
             protected override void OnPaint(PaintEventArgs e)
@@ -1969,7 +1855,6 @@ namespace FToolByTratox
                     borderPath.Dispose();
                 }
             }
-
             private GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
             {
                 GraphicsPath path = new GraphicsPath();
@@ -1981,7 +1866,6 @@ namespace FToolByTratox
                 return path;
             }
         }
-
         public class GamingButton : Button
         {
             private bool isHovered = false;
@@ -1994,7 +1878,6 @@ namespace FToolByTratox
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
                 this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
-
             protected override void OnPaint(PaintEventArgs pevent)
             {
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -2015,7 +1898,7 @@ namespace FToolByTratox
 
                 if (isHovered)
                 {
-                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3)) // Use RGB from BackColor
+                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3))
                     {
                         GraphicsPath glowPath = GetRoundedRectPath(
                             new Rectangle(-1, -1, Width + 1, Height + 1), 8);
@@ -2023,12 +1906,10 @@ namespace FToolByTratox
                         glowPath.Dispose();
                     }
                 }
-
                 TextRenderer.DrawText(pevent.Graphics, this.Text, this.Font,
                     this.ClientRectangle, this.ForeColor,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
-
             private GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
             {
                 GraphicsPath path = new GraphicsPath();
@@ -2040,7 +1921,6 @@ namespace FToolByTratox
                 return path;
             }
         }
-
         public class NeonButton : Button
         {
             public Color GlowColor { get; set; } = Color.Red;
@@ -2057,7 +1937,6 @@ namespace FToolByTratox
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
                 this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
-
             protected override void OnPaint(PaintEventArgs pevent)
             {
                 pevent.Graphics.Clear(this.Parent.BackColor);
@@ -2102,7 +1981,6 @@ namespace FToolByTratox
                 return path;
             }
         }
-
         public class HotkeyButton : Button
         {
             private bool isHovered = false;
@@ -2119,7 +1997,6 @@ namespace FToolByTratox
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
                 this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
-
             protected override void OnPaint(PaintEventArgs pevent)
             {
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -2144,7 +2021,6 @@ namespace FToolByTratox
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
         }
-
         public class ModernControlButton : Button
         {
             private bool isHovered = false;
@@ -2233,21 +2109,15 @@ namespace FToolByTratox
 
                 Rectangle checkBoxRect = new Rectangle(0, 2, 16, 16);
                 Rectangle textRect = new Rectangle(22, 0, Width - 22, Height);
-
-                // Dessiner la case à cocher
                 Color boxColor = this.Checked ? Color.FromArgb(255, 171, 71, 188) : Color.FromArgb(255, 65, 65, 85);
                 using (SolidBrush brush = new SolidBrush(boxColor))
                 {
                     pevent.Graphics.FillRectangle(brush, checkBoxRect);
                 }
-
-                // Bordure
                 using (Pen borderPen = new Pen(Color.FromArgb(255, 90, 90, 110), 1))
                 {
                     pevent.Graphics.DrawRectangle(borderPen, checkBoxRect);
                 }
-
-                // Coche si activé
                 if (this.Checked)
                 {
                     using (Pen checkPen = new Pen(Color.White, 2))
@@ -2260,8 +2130,6 @@ namespace FToolByTratox
                         });
                     }
                 }
-
-                // Texte
                 TextRenderer.DrawText(pevent.Graphics, this.Text, this.Font,
                     textRect, this.ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
             }
@@ -2298,7 +2166,6 @@ namespace FToolByTratox
                 };
                 pulseTimer.Start();
             }
-
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -2317,7 +2184,6 @@ namespace FToolByTratox
                     e.Graphics.FillEllipse(glowBrush, 0, 0, Width, Height);
                 }
             }
-
             protected override void Dispose(bool disposing)
             {
                 if (disposing)
@@ -2396,7 +2262,7 @@ namespace FToolByTratox
             {
                 this.BorderStyle = BorderStyle.None;
                 this.SetStyle(ControlStyles.UserPaint, true);
-                this.Multiline = true; // ← AJOUTEZ SEULEMENT CETTE LIGNE !
+                this.Multiline = true;
                 this.GotFocus += (s, e) => { isFocused = true; this.Invalidate(); };
                 this.LostFocus += (s, e) => { isFocused = false; this.Invalidate(); };
             }
@@ -2432,10 +2298,8 @@ namespace FToolByTratox
                 this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
                 this.SetStyle(ControlStyles.DoubleBuffer, true);
                 this.SetStyle(ControlStyles.ResizeRedraw, true);
-
-                // Utiliser SizeMode.FillToRight pour remplir toute la largeur
                 this.SizeMode = TabSizeMode.FillToRight;
-                this.ItemSize = new Size(0, 35); // Width sera calculé automatiquement
+                this.ItemSize = new Size(0, 35);
                 this.DrawMode = TabDrawMode.OwnerDrawFixed;
             }
 
@@ -2443,8 +2307,6 @@ namespace FToolByTratox
             {
                 e.Graphics.Clear(this.BackColor);
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
-                // Dessiner le fond complet pour éviter les espaces blancs
                 using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
                 {
                     e.Graphics.FillRectangle(bgBrush, 0, 0, this.Width, this.ItemSize.Height);
@@ -2476,8 +2338,6 @@ namespace FToolByTratox
                         new Font("Segoe UI", 9, FontStyle.Bold), tabRect, textColor,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 }
-
-                // Remplir tout espace restant avec la couleur de fond
                 int totalTabsWidth = 0;
                 for (int i = 0; i < this.TabCount; i++)
                 {
@@ -2496,10 +2356,8 @@ namespace FToolByTratox
 
             protected override void WndProc(ref Message m)
             {
-                // Supprimer uniquement la bordure, garder le reste du comportement
-                if (m.Msg == 0x1328) // TCM_ADJUSTRECT
+                if (m.Msg == 0x1328)
                 {
-                    // Ajuster le rectangle d'affichage pour supprimer la bordure
                     base.WndProc(ref m);
                     RECT rc = (RECT)m.GetLParam(typeof(RECT));
                     rc.Left -= 2;
@@ -2515,7 +2373,6 @@ namespace FToolByTratox
             }
         }
 
-        // Ajoutez cette structure pour WndProc
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
         {
@@ -2543,7 +2400,6 @@ namespace FToolByTratox
             {
                 InitializeHotkeyCapture();
             }
-
             private void InitializeHotkeyCapture()
             {
                 this.Text = "Capture Hotkey";
@@ -2674,7 +2530,6 @@ namespace FToolByTratox
                     CapturedHotkey = "";
                 }
             }
-
             private string GetKeyName(Keys key)
             {
                 if (KeyNames.ContainsKey(key))
@@ -2697,7 +2552,6 @@ namespace FToolByTratox
                 this.Close();
             }
         }
-
         #endregion
         private Icon CreateModernIcon()
         {
@@ -2726,7 +2580,6 @@ namespace FToolByTratox
             Application.Run(new MainForm());
         }
     }
-
     public static class GraphicsExtensions
     {
         public static void FillRoundedRectangle(this Graphics graphics, Brush brush, Rectangle rect, int radius)
@@ -2736,7 +2589,6 @@ namespace FToolByTratox
                 graphics.FillPath(brush, path);
             }
         }
-
         public static void DrawRoundedRectangle(this Graphics graphics, Pen pen, Rectangle rect, int radius)
         {
             using (GraphicsPath path = GetRoundedRectPath(rect, radius))
@@ -2744,7 +2596,6 @@ namespace FToolByTratox
                 graphics.DrawPath(pen, path);
             }
         }
-
         private static GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
         {
             GraphicsPath path = new GraphicsPath();
