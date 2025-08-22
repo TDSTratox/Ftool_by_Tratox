@@ -2050,22 +2050,25 @@ namespace FToolByTratox
             {
                 this.FlatStyle = FlatStyle.Flat;
                 this.FlatAppearance.BorderSize = 0;
+                this.UseVisualStyleBackColor = false;
                 this.SetStyle(ControlStyles.UserPaint, true);
+                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+                this.SetStyle(ControlStyles.SupportsTransparentBackColor, false);
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
                 this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
 
             protected override void OnPaint(PaintEventArgs pevent)
             {
+                pevent.Graphics.Clear(this.Parent.BackColor);
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
                 Rectangle rect = new Rectangle(2, 2, Width - 4, Height - 4);
 
                 if (isHovered)
                 {
                     for (int i = 1; i <= 3; i++)
                     {
-                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2)) // Use RGB from GlowColor
+                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2))
                         {
                             GraphicsPath glowPath = GetRoundedRectPath(
                                 new Rectangle(rect.X - i, rect.Y - i,
