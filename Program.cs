@@ -1016,7 +1016,7 @@ namespace FToolByTratox
             spammer.WindowCombo = windowCombo;
             card.Controls.Add(windowCombo);
 
-            CreateCompactLabel(card, "INT", 235, 26, new Font("Segoe UI", 10, FontStyle.Bold));
+            CreateCompactLabel(card, "Sec", 235, 26, new Font("Segoe UI", 10, FontStyle.Bold));
             TextBox intervalText = new GamingTextBox
             {
                 Text = "0",
@@ -1036,7 +1036,7 @@ namespace FToolByTratox
             ComboBox fkeyCombo = new GamingComboBox
             {
                 Location = new Point(290, 45),
-                Size = new Size(55, 22),
+                Size = new Size(45, 22),
                 BackColor = SecondaryBackground,
                 ForeColor = TextPrimary,
                 Font = new Font("Segoe UI", 8)
@@ -1101,7 +1101,7 @@ namespace FToolByTratox
             {
                 Text = text,
                 Location = new Point(x, y),
-                Size = new Size(60, 16),
+                AutoSize = true,
                 ForeColor = TextSecondary,
                 Font = customFont ?? new Font("Segoe UI", 6, FontStyle.Bold),
                 BackColor = Color.Transparent
