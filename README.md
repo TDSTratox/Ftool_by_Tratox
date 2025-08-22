@@ -143,26 +143,6 @@ Skill=2
 - **Surveillez votre utilisation** pour éviter la détection
 - **Fermez l'outil** si vous ne l'utilisez pas
 
-## 🏗️ Architecture Technique
-
-### 📁 Structure du Code
-
-```
-FToolByTratox/
-├── Program.cs                 # Point d'entrée principal
-├── MainForm.cs               # Interface principale
-├── SpammerData.cs           # Gestion des données de spammeur
-├── SettingsData.cs          # Configuration globale
-├── HotkeyCapture.cs         # Capture des raccourcis clavier
-└── UI Components/
-    ├── GamingButton.cs      # Boutons personnalisés
-    ├── NeonButton.cs        # Boutons avec effets néon
-    ├── GamingTextBox.cs     # Champs de texte gaming
-    ├── GamingComboBox.cs    # Listes déroulantes
-    ├── GamingTabControl.cs  # Onglets personnalisés
-    └── Custom Panels/       # Panneaux et indicateurs
-```
-
 ### 🔧 APIs Utilisées
 
 | API Windows | Usage |
@@ -223,6 +203,7 @@ RegisterHotKey(this.Handle, hotkeyId, MOD_CONTROL, VK_F1);
 - ✅ Désactivez/réactivez les hotkeys dans les paramètres
 
 #### Le spam ne fonctionne pas
+- ✅ Lancez en tant qu'**administrateur**
 - ✅ Vérifiez que la **fenêtre Flyff est sélectionnée** correctement
 - ✅ Testez avec un **intervalle plus long** (2-3 secondes)
 - ✅ Vérifiez que les **touches F/Skills sont bien configurées** dans le jeu
@@ -307,8 +288,8 @@ SOFTWARE.
 ## 👨‍💻 Auteur
 
 **Tratox** - *Développeur principal*
-- 🎮 Passionné de gaming et d'automatisation
-- 💻 Spécialiste C# / .NET Framework
+- 🎮 Passionné de gaming 
+- 💻 Spécialiste C# / C++ / .NET Framework
 - 🎨 Designer d'interfaces gaming modernes
 
 ## 🙏 Remerciements
@@ -317,7 +298,6 @@ SOFTWARE.
 - **Microsoft** pour le .NET Framework
 - **Opera GX** pour l'inspiration du design
 - **Tous les contributeurs** qui ont aidé à améliorer ce projet
-
 ---
 
 <div align="center">
