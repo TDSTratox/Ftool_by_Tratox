@@ -1,7 +1,7 @@
 # FTool by Tratox
 
 <img width="520" height="744" alt="image" src="https://github.com/user-attachments/assets/7d586977-3b72-47d3-b92f-eb3b38f03f83" />
-
+<img width="517" height="739" alt="image" src="https://github.com/user-attachments/assets/ecaf049b-f1fc-4a5e-ac08-7fa261b3203a" />
 
 **FTool by Tratox** est un outil d'automatisation sophistiqué conçu spécialement pour le jeu **Flyff** (Fly For Fun). Cette application permet de gérer jusqu'à 20 spammeurs simultanés avec une interface moderne inspirée d'Opera GX.
 
