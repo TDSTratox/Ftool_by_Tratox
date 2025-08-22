@@ -120,7 +120,6 @@ namespace FToolByTratox
             public string MasterStartHotKey { get; set; } = "";
             public string MasterStopHotKey { get; set; } = "";
             public bool EnableGlobalHotKeys { get; set; } = true;
-            public bool ShowNotifications { get; set; } = false;
         }
 
         private List<SpammerData> spammers = new List<SpammerData>();
@@ -194,8 +193,9 @@ namespace FToolByTratox
                     else if (pos.Y >= this.Height - resizeBorder)
                         m.Result = new IntPtr(HTBOTTOM);
                     // Barre de titre pour déplacement (exclut les boutons de contrôle)
-                    else if (pos.Y <= 35 && pos.X < this.Width - 80)
-                        m.Result = new IntPtr(HTCAPTION);
+                    // Cette partie est maintenant gérée par les événements MouseDown/Move/Up sur la titleBar
+                    // else if (pos.Y <= 35 && pos.X < this.Width - 80)
+                    //     m.Result = new IntPtr(HTCAPTION);
                     break;
 
                 case WM_HOTKEY:
@@ -244,9 +244,9 @@ namespace FToolByTratox
             this.SuspendLayout();
 
             // Configuration fenêtre principale
-            this.Text = "FTool by Tratox v2.0 - Opera GX Edition";
-            this.Size = new Size(520, 720);
-            this.MinimumSize = new Size(480, 600); // Taille minimale pour éviter les problèmes d'affichage
+            this.Text = "FTool by Tratox v1.0";
+            this.Size = new Size(520, 730); // Augmenté de 520x720 à 620x800
+            this.MinimumSize = new Size(520, 650); // Augmenté de 480x600 à 580x750
             this.BackColor = PrimaryBackground;
             this.ForeColor = TextPrimary;
             this.FormBorderStyle = FormBorderStyle.None;
@@ -283,6 +283,11 @@ namespace FToolByTratox
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
+            // Ajouter les gestionnaires d'événements de la souris à la barre de titre
+            titleBar.MouseDown += TitleBar_MouseDown;
+            titleBar.MouseMove += TitleBar_MouseMove;
+            titleBar.MouseUp += TitleBar_MouseUp;
+
             // Logo et titre
             Label logoLabel = new Label
             {
@@ -293,6 +298,11 @@ namespace FToolByTratox
                 Size = new Size(25, 25),
                 BackColor = Color.Transparent
             };
+            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
+            logoLabel.MouseDown += TitleBar_MouseDown;
+            logoLabel.MouseMove += TitleBar_MouseMove;
+            logoLabel.MouseUp += TitleBar_MouseUp;
+
 
             Label titleLabel = new Label
             {
@@ -303,16 +313,24 @@ namespace FToolByTratox
                 Size = new Size(150, 20),
                 BackColor = Color.Transparent
             };
+            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
+            titleLabel.MouseDown += TitleBar_MouseDown;
+            titleLabel.MouseMove += TitleBar_MouseMove;
+            titleLabel.MouseUp += TitleBar_MouseUp;
 
             Label versionLabel = new Label
             {
-                Text = "v2.0",
+                Text = "v1.0",
                 Font = new Font("Segoe UI", 8, FontStyle.Regular),
                 ForeColor = AccentBlue,
                 Location = new Point(190, 10),
                 Size = new Size(30, 15),
                 BackColor = Color.Transparent
             };
+            // Ajouter les gestionnaires d'événements de la souris aux contrôles de la barre de titre
+            versionLabel.MouseDown += TitleBar_MouseDown;
+            versionLabel.MouseMove += TitleBar_MouseMove;
+            versionLabel.MouseUp += TitleBar_MouseUp;
 
             // Boutons de contrôle avec positionnement correct
             minimizeBtn = new ModernControlButton
@@ -343,8 +361,6 @@ namespace FToolByTratox
 
             closeBtn.BringToFront();
             minimizeBtn.BringToFront();
-
-            // Supprimé les événements MouseDown car maintenant géré par WndProc
 
             this.Controls.Add(titleBar);
         }
@@ -381,6 +397,31 @@ namespace FToolByTratox
             this.Close();
         }
 
+        // Gestionnaires d'événements pour le déplacement de la fenêtre
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isDragging = true;
+                mouseLocation = e.Location;
+            }
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDragging)
+            {
+                this.Location = new Point(
+                    this.Location.X + (e.X - mouseLocation.X),
+                    this.Location.Y + (e.Y - mouseLocation.Y));
+            }
+        }
+
+        private void TitleBar_MouseUp(object sender, MouseEventArgs e)
+        {
+            isDragging = false;
+        }
+
         private void CreateMainInterface()
         {
             // Header avec statistiques
@@ -406,8 +447,8 @@ namespace FToolByTratox
             masterStartStopButton = new NeonButton
             {
                 Text = "🚀 START ALL",
-                Location = new Point(this.Width - 160, 15),
-                Size = new Size(130, 35),
+                Location = new Point(this.Width - 180, 15), // Ajusté pour la nouvelle largeur
+                Size = new Size(150, 35), // Légèrement plus large
                 BackColor = AccentGreen,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
@@ -435,7 +476,7 @@ namespace FToolByTratox
             tabControl = new GamingTabControl
             {
                 Location = new Point(15, 140),
-                Size = new Size(490, 550),
+                Size = new Size(590, 630), // Augmenté de 490x550 à 590x630
                 BackColor = PrimaryBackground,
                 ForeColor = TextPrimary,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
@@ -697,21 +738,10 @@ namespace FToolByTratox
                 SaveSettings();
             };
 
-            CheckBox showNotificationsCheckBox = new ModernCheckBox
-            {
-                Text = "Show Notifications",
-                Checked = settings.ShowNotifications,
-                Location = new Point(15, 70),
-                Size = new Size(200, 20),
-                ForeColor = TextPrimary
-            };
-            showNotificationsCheckBox.CheckedChanged += (s, e) => {
-                settings.ShowNotifications = showNotificationsCheckBox.Checked;
-                SaveSettings();
-            };
+            // La CheckBox pour les notifications est supprimée.
 
             optionsPanel.Controls.AddRange(new Control[] {
-                optionsTitle, enableHotkeysCheckBox, showNotificationsCheckBox
+                optionsTitle, enableHotkeysCheckBox
             });
             settingsPanel.Controls.Add(optionsPanel);
 
@@ -928,20 +958,12 @@ namespace FToolByTratox
             if (hotkeyId == 1 && !string.IsNullOrEmpty(settings.MasterStartHotKey)) // Master Start
             {
                 MasterStartStop_Click(null, null);
-                if (settings.ShowNotifications)
-                {
-                    ShowNotification("Master Start/Stop triggered");
-                }
                 return;
             }
 
             if (hotkeyId == 2 && !string.IsNullOrEmpty(settings.MasterStopHotKey)) // Master Stop
             {
                 MasterStartStop_Click(null, null);
-                if (settings.ShowNotifications)
-                {
-                    ShowNotification("Master Start/Stop triggered");
-                }
                 return;
             }
 
@@ -951,23 +973,10 @@ namespace FToolByTratox
                 if (spammers[i].HotKeyId == hotkeyId)
                 {
                     StartButton_Click(spammers[i].StartButton, null);
-                    if (settings.ShowNotifications)
-                    {
-                        string action = spammers[i].IsRunning ? "stopped" : "started";
-                        ShowNotification($"Spammer #{i + 1} {action}");
-                    }
                     break;
                 }
             }
         }
-
-        private void ShowNotification(string message)
-        {
-            // Afficher une notification toast simple
-            var notificationForm = new NotificationForm(message);
-            notificationForm.Show();
-        }
-
         private void CreateGamingSpammerCard(Panel parent, int index)
         {
             int localIndex = index % 5;
@@ -1063,11 +1072,11 @@ namespace FToolByTratox
             spammer.StartButton = startButton;
             card.Controls.Add(startButton);
 
-            CreateCompactLabel(card, "WINDOW", 95, 30);
+            CreateCompactLabel(card, "WINDOW", 95, 26, new Font("Segoe UI", 10, FontStyle.Bold));
             ComboBox windowCombo = new GamingComboBox
             {
-                Location = new Point(95, 45),
-                Size = new Size(130, 22),
+                Location = new Point(95, 47),
+                Size = new Size(130, 25),
                 BackColor = SecondaryBackground,
                 ForeColor = TextPrimary,
                 Font = new Font("Segoe UI", 8)
@@ -1079,12 +1088,12 @@ namespace FToolByTratox
             spammer.WindowCombo = windowCombo;
             card.Controls.Add(windowCombo);
 
-            CreateCompactLabel(card, "INT", 235, 30);
+            CreateCompactLabel(card, "INT", 235, 26, new Font("Segoe UI", 10, FontStyle.Bold)); // Police plus grande (10) et position Y légèrement ajustée
             TextBox intervalText = new GamingTextBox
             {
                 Text = "0",
-                Location = new Point(235, 45),
-                Size = new Size(45, 22),
+                Location = new Point(235, 47),
+                Size = new Size(45, 25), // ← Cette hauteur sera maintenant respectée !
                 BackColor = SecondaryBackground,
                 ForeColor = TextPrimary,
                 Font = new Font("Segoe UI", 8)
@@ -1095,7 +1104,7 @@ namespace FToolByTratox
             spammer.IntervalText = intervalText;
             card.Controls.Add(intervalText);
 
-            CreateCompactLabel(card, "F-KEY", 290, 30);
+            CreateCompactLabel(card, "F-KEY", 290, 26, new Font("Segoe UI", 9, FontStyle.Bold));
             ComboBox fkeyCombo = new GamingComboBox
             {
                 Location = new Point(290, 45),
@@ -1111,7 +1120,7 @@ namespace FToolByTratox
             spammer.FKeyCombo = fkeyCombo;
             card.Controls.Add(fkeyCombo);
 
-            CreateCompactLabel(card, "SKILL", 355, 30);
+            CreateCompactLabel(card, "SKILL", 355, 26, new Font("Segoe UI", 9, FontStyle.Bold));
             ComboBox skillCombo = new GamingComboBox
             {
                 Location = new Point(355, 45),
@@ -1160,15 +1169,15 @@ namespace FToolByTratox
             }
         }
 
-        private void CreateCompactLabel(Panel parent, string text, int x, int y)
+        private void CreateCompactLabel(Panel parent, string text, int x, int y, Font customFont = null)
         {
             Label label = new Label
             {
                 Text = text,
                 Location = new Point(x, y),
-                Size = new Size(60, 10),
+                Size = new Size(60, 16), // Hauteur augmentée pour accommoder le texte plus grand
                 ForeColor = TextSecondary,
-                Font = new Font("Segoe UI", 6, FontStyle.Bold),
+                Font = customFont ?? new Font("Segoe UI", 6, FontStyle.Bold), // Police par défaut ou personnalisée
                 BackColor = Color.Transparent
             };
             parent.Controls.Add(label);
@@ -1337,7 +1346,7 @@ namespace FToolByTratox
                         break;
                     }
                 }
-                catch { continue; }
+                catch { /* Ignorer les erreurs d'accès aux processus */ }
             }
 
             if (!windowFound)
@@ -1435,21 +1444,24 @@ namespace FToolByTratox
 
             try
             {
-                if (hasSkill && VirtualKeys.ContainsKey(skill))
+                // Optimisation: Éviter les appels inutiles si aucune touche n'est configurée
+                if (!hasFKey && !hasSkill) return;
+
+                if (hasSkill && VirtualKeys.TryGetValue(skill, out uint skillKeyCode))
                 {
-                    SendKeyToFlyff(windowHandle, VirtualKeys[skill]);
-                    Debug.WriteLine($"Skill sent: {skill} (VK: {VirtualKeys[skill]})");
+                    SendKeyToFlyff(windowHandle, skillKeyCode);
+                    Debug.WriteLine($"Skill sent: {skill} (VK: {skillKeyCode})");
 
                     if (hasFKey)
                     {
-                        Thread.Sleep(150);
+                        Thread.Sleep(150); // Délai entre les touches F-Key et Skill
                     }
                 }
 
-                if (hasFKey && VirtualKeys.ContainsKey(fkey))
+                if (hasFKey && VirtualKeys.TryGetValue(fkey, out uint fkeyCode))
                 {
-                    SendKeyToFlyff(windowHandle, VirtualKeys[fkey]);
-                    Debug.WriteLine($"F-Key sent: {fkey} (VK: {VirtualKeys[fkey]})");
+                    SendKeyToFlyff(windowHandle, fkeyCode);
+                    Debug.WriteLine($"F-Key sent: {fkey} (VK: {fkeyCode})");
                 }
             }
             catch (Exception ex)
@@ -1462,17 +1474,14 @@ namespace FToolByTratox
         {
             try
             {
+                // Tenter d'abord PostMessage, puis SendMessage en fallback
                 bool success = PostMessage(windowHandle, WM_KEYDOWN, new IntPtr(virtualKeyCode), IntPtr.Zero);
-
-                if (success)
-                {
-                    Debug.WriteLine($"Key {virtualKeyCode} sent to Flyff via PostMessage");
-                }
-                else
+                if (!success)
                 {
                     SendMessage(windowHandle, WM_KEYDOWN, new IntPtr(virtualKeyCode), IntPtr.Zero);
-                    Debug.WriteLine($"Key {virtualKeyCode} sent to Flyff via SendMessage (fallback)");
                 }
+                // Pas besoin d'envoyer WM_KEYUP immédiatement après WM_KEYDOWN pour Flyff,
+                // le jeu gère généralement le relâchement de la touche.
             }
             catch (Exception ex)
             {
@@ -1491,7 +1500,7 @@ namespace FToolByTratox
                 spammer.SpamTimer = null;
                 spammer.IsRunning = false;
             }
-            catch { }
+            catch { /* Ignorer les erreurs de dispose si le timer est déjà null ou en cours de dispose */ }
 
             spammer.TargetWindowHandle = IntPtr.Zero;
             spammer.WindowTitle = "";
@@ -1533,12 +1542,14 @@ namespace FToolByTratox
                         windowTitles.Add(proc.MainWindowTitle);
                     }
                 }
-                catch { }
+                catch { /* Ignorer les erreurs d'accès aux processus */ }
             }
 
-            if (combo.Items.Contains(currentSelection))
+            // Optimisation: Utiliser FindStringExact pour une correspondance exacte et éviter les boucles
+            int selectedIndex = combo.FindStringExact(currentSelection);
+            if (selectedIndex != -1)
             {
-                combo.Text = currentSelection;
+                combo.SelectedIndex = selectedIndex;
             }
             else
             {
@@ -1614,13 +1625,7 @@ namespace FToolByTratox
                         if (bool.TryParse(generalSettings["EnableGlobalHotKeys"], out enableGlobalHotKeys))
                             settings.EnableGlobalHotKeys = enableGlobalHotKeys;
                     }
-
-                    if (generalSettings.ContainsKey("ShowNotifications"))
-                    {
-                        bool showNotifications;
-                        if (bool.TryParse(generalSettings["ShowNotifications"], out showNotifications))
-                            settings.ShowNotifications = showNotifications;
-                    }
+                    // La lecture de ShowNotifications est supprimée.
                 }
 
                 // Charger les hotkeys des spammers
@@ -1767,7 +1772,7 @@ namespace FToolByTratox
                     writer.WriteLine($"MasterStartHotKey={settings.MasterStartHotKey}");
                     writer.WriteLine($"MasterStopHotKey={settings.MasterStopHotKey}");
                     writer.WriteLine($"EnableGlobalHotKeys={settings.EnableGlobalHotKeys}");
-                    writer.WriteLine($"ShowNotifications={settings.ShowNotifications}");
+                    // L'écriture de ShowNotifications est supprimée.
                     writer.WriteLine();
 
                     // Section HotKeys
@@ -1886,7 +1891,7 @@ namespace FToolByTratox
                     g.FillRectangle(bgBrush, scrollRect);
                 }
 
-                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarColor), 1))
+                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarBackColor), 1)) // Changed to ScrollbarBackColor for consistency
                 {
                     g.DrawRectangle(borderPen, scrollRect);
                 }
@@ -1896,19 +1901,21 @@ namespace FToolByTratox
                     int contentHeight = this.AutoScrollMinSize.Height;
                     int visibleHeight = this.ClientSize.Height;
 
+                    // Optimisation: Éviter la division par zéro
+                    int scrollMax = Math.Max(1, this.VerticalScroll.Maximum);
                     int thumbHeight = Math.Max(20, (visibleHeight * visibleHeight) / Math.Max(contentHeight, visibleHeight));
                     int scrollRange = this.Height - thumbHeight - 4;
-                    int thumbTop = 2 + (int)((float)this.VerticalScroll.Value / Math.Max(1, this.VerticalScroll.Maximum) * scrollRange);
+                    int thumbTop = 2 + (int)((float)this.VerticalScroll.Value / scrollMax * scrollRange);
 
                     Rectangle thumbRect = new Rectangle(this.Width - 13, thumbTop, 11, thumbHeight);
 
                     using (LinearGradientBrush thumbBrush = new LinearGradientBrush(
-                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor), LinearGradientMode.Vertical))
+                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical)) // Use RGB from ScrollbarColor
                     {
                         g.FillRoundedRectangle(thumbBrush, thumbRect, 5);
                     }
 
-                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor), 2))
+                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2)) // Use RGB from ScrollbarColor
                     {
                         Rectangle glowRect = new Rectangle(thumbRect.X - 1, thumbRect.Y - 1, thumbRect.Width + 2, thumbRect.Height + 2);
                         g.DrawRoundedRectangle(glowPen, glowRect, 6);
@@ -2008,7 +2015,7 @@ namespace FToolByTratox
 
                 if (isHovered)
                 {
-                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor), 3))
+                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3)) // Use RGB from BackColor
                     {
                         GraphicsPath glowPath = GetRoundedRectPath(
                             new Rectangle(-1, -1, Width + 1, Height + 1), 8);
@@ -2058,7 +2065,7 @@ namespace FToolByTratox
                 {
                     for (int i = 1; i <= 3; i++)
                     {
-                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor), i * 2))
+                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2)) // Use RGB from GlowColor
                         {
                             GraphicsPath glowPath = GetRoundedRectPath(
                                 new Rectangle(rect.X - i, rect.Y - i,
@@ -2386,6 +2393,7 @@ namespace FToolByTratox
             {
                 this.BorderStyle = BorderStyle.None;
                 this.SetStyle(ControlStyles.UserPaint, true);
+                this.Multiline = true; // ← AJOUTEZ SEULEMENT CETTE LIGNE !
                 this.GotFocus += (s, e) => { isFocused = true; this.Invalidate(); };
                 this.LostFocus += (s, e) => { isFocused = false; this.Invalidate(); };
             }
@@ -2418,13 +2426,26 @@ namespace FToolByTratox
             public GamingTabControl()
             {
                 this.SetStyle(ControlStyles.UserPaint, true);
-                this.ItemSize = new Size(120, 35);
-                this.SizeMode = TabSizeMode.Fixed;
+                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+                this.SetStyle(ControlStyles.DoubleBuffer, true);
+                this.SetStyle(ControlStyles.ResizeRedraw, true);
+
+                // Utiliser SizeMode.FillToRight pour remplir toute la largeur
+                this.SizeMode = TabSizeMode.FillToRight;
+                this.ItemSize = new Size(0, 35); // Width sera calculé automatiquement
+                this.DrawMode = TabDrawMode.OwnerDrawFixed;
             }
 
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.Clear(this.BackColor);
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                // Dessiner le fond complet pour éviter les espaces blancs
+                using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
+                {
+                    e.Graphics.FillRectangle(bgBrush, 0, 0, this.Width, this.ItemSize.Height);
+                }
 
                 for (int i = 0; i < this.TabCount; i++)
                 {
@@ -2451,6 +2472,22 @@ namespace FToolByTratox
                     TextRenderer.DrawText(e.Graphics, this.TabPages[i].Text,
                         new Font("Segoe UI", 9, FontStyle.Bold), tabRect, textColor,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+
+                // Remplir tout espace restant avec la couleur de fond
+                int totalTabsWidth = 0;
+                for (int i = 0; i < this.TabCount; i++)
+                {
+                    totalTabsWidth += this.GetTabRect(i).Width;
+                }
+
+                if (totalTabsWidth < this.Width)
+                {
+                    Rectangle remainingRect = new Rectangle(totalTabsWidth, 0, this.Width - totalTabsWidth, this.ItemSize.Height);
+                    using (SolidBrush remainingBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
+                    {
+                        e.Graphics.FillRectangle(remainingBrush, remainingRect);
+                    }
                 }
             }
 
@@ -2659,124 +2696,6 @@ namespace FToolByTratox
         }
 
         #endregion
-
-        #region Notification Form
-
-        public partial class NotificationForm : Form
-        {
-            private System.Windows.Forms.Timer fadeTimer;
-            private double opacity = 0.0;
-            private bool fadingIn = true;
-
-            public NotificationForm(string message)
-            {
-                InitializeNotification(message);
-            }
-
-            private void InitializeNotification(string message)
-            {
-                this.Text = "";
-                this.Size = new Size(300, 80);
-                this.FormBorderStyle = FormBorderStyle.None;
-                this.ShowInTaskbar = false;
-                this.TopMost = true;
-                this.BackColor = Color.FromArgb(255, 26, 26, 35);
-                this.Opacity = 0;
-
-                // Positionner en bas à droite de l'écran
-                Rectangle workingArea = Screen.GetWorkingArea(this);
-                this.Location = new Point(
-                    workingArea.Right - this.Width - 20,
-                    workingArea.Bottom - this.Height - 20
-                );
-
-                Panel mainPanel = new Panel
-                {
-                    Location = new Point(0, 0),
-                    Size = this.Size,
-                    BackColor = Color.FromArgb(255, 45, 45, 65)
-                };
-
-                Label messageLabel = new Label
-                {
-                    Text = message,
-                    Location = new Point(10, 10),
-                    Size = new Size(280, 60),
-                    ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                    TextAlign = ContentAlignment.MiddleLeft,
-                    BackColor = Color.Transparent
-                };
-
-                mainPanel.Controls.Add(messageLabel);
-                this.Controls.Add(mainPanel);
-
-                fadeTimer = new System.Windows.Forms.Timer();
-                fadeTimer.Interval = 50;
-                fadeTimer.Tick += FadeTimer_Tick;
-                fadeTimer.Start();
-
-                // Auto-fermer après 3 secondes
-                System.Windows.Forms.Timer closeTimer = new System.Windows.Forms.Timer();
-                closeTimer.Interval = 3000;
-                closeTimer.Tick += (s, e) => {
-                    fadingIn = false;
-                    closeTimer.Stop();
-                    closeTimer.Dispose();
-                };
-                closeTimer.Start();
-            }
-
-            private void FadeTimer_Tick(object sender, EventArgs e)
-            {
-                if (fadingIn)
-                {
-                    opacity += 0.1;
-                    if (opacity >= 0.9)
-                    {
-                        opacity = 0.9;
-                        fadingIn = false;
-                        fadeTimer.Stop();
-
-                        // Attendre un peu avant de commencer à disparaître
-                        System.Windows.Forms.Timer waitTimer = new System.Windows.Forms.Timer();
-                        waitTimer.Interval = 2000;
-                        waitTimer.Tick += (s, ev) => {
-                            fadingIn = false;
-                            fadeTimer.Start();
-                            waitTimer.Stop();
-                            waitTimer.Dispose();
-                        };
-                        waitTimer.Start();
-                    }
-                }
-                else
-                {
-                    opacity -= 0.1;
-                    if (opacity <= 0)
-                    {
-                        opacity = 0;
-                        fadeTimer.Stop();
-                        this.Close();
-                    }
-                }
-
-                this.Opacity = opacity;
-            }
-
-            protected override void Dispose(bool disposing)
-            {
-                if (disposing)
-                {
-                    fadeTimer?.Stop();
-                    fadeTimer?.Dispose();
-                }
-                base.Dispose(disposing);
-            }
-        }
-
-        #endregion
-
         private Icon CreateModernIcon()
         {
             Bitmap bitmap = new Bitmap(32, 32);
@@ -2805,7 +2724,6 @@ namespace FToolByTratox
         }
     }
 
-    // Extensions pour dessiner des rectangles arrondis - DOIT être en dehors de MainForm
     public static class GraphicsExtensions
     {
         public static void FillRoundedRectangle(this Graphics graphics, Brush brush, Rectangle rect, int radius)
