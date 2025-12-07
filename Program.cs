@@ -168,6 +168,16 @@ namespace FToolByTratox
             catch { }
         }
 
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED - Active le double buffering pour TOUT
+                return cp;
+            }
+        }
+
         protected override void WndProc(ref Message m)
         {
             switch (m.Msg)
@@ -242,7 +252,20 @@ namespace FToolByTratox
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            this.Text = "FTool by Tratox v1.0";
+
+            // AJOUT - Optimisations de performance maximales
+            this.SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
+            this.DoubleBuffered = true;
+            this.UpdateStyles();
+
+            this.Text = "FTool by Tratox v1.2";
             this.Size = new Size(520, 730);
             this.MinimumSize = new Size(520, 650);
             this.BackColor = PrimaryBackground;
@@ -257,12 +280,13 @@ namespace FToolByTratox
             CreateMainInterface();
             windowCheckTimer = new System.Windows.Forms.Timer { Interval = 2000, Enabled = true };
             windowCheckTimer.Tick += CheckWindowsExist;
-            statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 1000, Enabled = true };
+            statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 500, Enabled = true };
             statusUpdateTimer.Tick += UpdateStatus;
             LoadSettings();
             this.FormClosing += MainForm_FormClosing;
             this.Resize += MainForm_Resize;
-            this.ResumeLayout();
+            this.ResumeLayout(false);
+            this.PerformLayout();
         }
 
         private void CreateCustomTitleBar()
@@ -1780,6 +1804,14 @@ namespace FToolByTratox
 
             public GamingScrollablePanel()
             {
+                this.SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw,
+                    true
+                 );
+                this.DoubleBuffered = true;
                 this.AutoScroll = true;
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
