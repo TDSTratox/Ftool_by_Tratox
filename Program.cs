@@ -48,6 +48,12 @@ namespace FToolByTratox
         private WindowRenderTarget renderTarget;
         private Dictionary<string, D2D1.SolidColorBrush> brushCache = new Dictionary<string, D2D1.SolidColorBrush>();
 
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        private const int DWMWA_NCRENDERING_POLICY = 2;
+        private const int DWMNCRP_DISABLED = 1;
+
         const uint WM_KEYDOWN = 0x0100;
         const uint WM_KEYUP = 0x0101;
         const uint WM_CHAR = 0x0102;
@@ -173,8 +179,23 @@ namespace FToolByTratox
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED - Active le double buffering pour TOUT
+                // N'utilise PAS WS_EX_COMPOSITED avec DirectX
+                cp.ExStyle &= ~0x02000000;
+                // Active WS_CLIPCHILDREN pour éviter les conflits de rendu
+                cp.Style |= 0x02000000;
                 return cp;
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+
+            // Désactive la composition DWM pour ce formulaire
+            if (Environment.OSVersion.Version.Major >= 6)
+            {
+                int value = DWMNCRP_DISABLED;
+                DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref value, sizeof(int));
             }
         }
 
@@ -253,19 +274,17 @@ namespace FToolByTratox
         {
             this.SuspendLayout();
 
-            // AJOUT - Optimisations de performance maximales
             this.SetStyle(
                 ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.UserPaint |
-                ControlStyles.OptimizedDoubleBuffer |
-                ControlStyles.ResizeRedraw |
-                ControlStyles.SupportsTransparentBackColor,
+                ControlStyles.Opaque |  // ← Change ça de OptimizedDoubleBuffer à Opaque
+                ControlStyles.ResizeRedraw,
                 true
-            );
-            this.DoubleBuffered = true;
+             );
+            this.DoubleBuffered = false;
             this.UpdateStyles();
 
-            this.Text = "FTool by Tratox v1.2";
+            this.Text = "FTool by Tratox v1.5";
             this.Size = new Size(520, 730);
             this.MinimumSize = new Size(520, 650);
             this.BackColor = PrimaryBackground;
@@ -278,6 +297,10 @@ namespace FToolByTratox
 
             CreateCustomTitleBar();
             CreateMainInterface();
+
+            // AJOUT - Créer le RenderTarget après que le form soit créé
+            this.HandleCreated += (s, e) => CreateRenderTarget(this);
+
             windowCheckTimer = new System.Windows.Forms.Timer { Interval = 2000, Enabled = true };
             windowCheckTimer.Tick += CheckWindowsExist;
             statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 500, Enabled = true };
@@ -287,6 +310,34 @@ namespace FToolByTratox
             this.Resize += MainForm_Resize;
             this.ResumeLayout(false);
             this.PerformLayout();
+        }
+
+        private void CreateRenderTarget(Control control)
+        {
+            if (d2dFactory == null || control == null || !control.IsHandleCreated) return;
+
+            try
+            {
+                var props = new RenderTargetProperties
+                {
+                    Type = RenderTargetType.Default,
+                    PixelFormat = new SharpDX.Direct2D1.PixelFormat(SharpDX.DXGI.Format.B8G8R8A8_UNorm, D2D1.AlphaMode.Premultiplied)
+                };
+
+                var hwndProps = new HwndRenderTargetProperties
+                {
+                    Hwnd = control.Handle,
+                    PixelSize = new SharpDX.Size2(control.Width, control.Height),
+                    PresentOptions = PresentOptions.Immediately
+                };
+
+                renderTarget = new WindowRenderTarget(d2dFactory, props, hwndProps);
+                Debug.WriteLine("✅ DirectX RenderTarget créé");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ RenderTarget creation failed: {ex.Message}");
+            }
         }
 
         private void CreateCustomTitleBar()
@@ -332,7 +383,7 @@ namespace FToolByTratox
 
             Label versionLabel = new Label
             {
-                Text = "v1.0",
+                Text = "v1.5",
                 Font = new Font("Segoe UI", 8, FontStyle.Regular),
                 ForeColor = AccentBlue,
                 Location = new Point(190, 10),
@@ -393,6 +444,16 @@ namespace FToolByTratox
                 closeBtn.BringToFront();
                 minimizeBtn.BringToFront();
                 titleBar.Invalidate();
+            }
+
+            // AJOUT - Resize du RenderTarget DirectX
+            if (renderTarget != null && !renderTarget.IsDisposed)
+            {
+                try
+                {
+                    renderTarget.Resize(new SharpDX.Size2(this.Width, this.Height));
+                }
+                catch { }
             }
         }
 
@@ -481,10 +542,22 @@ namespace FToolByTratox
             tabControl = new GamingTabControl
             {
                 Location = new Point(15, 140),
-                Size = new Size(590, 630), 
+                Size = new Size(590, 630),
                 BackColor = PrimaryBackground,
                 ForeColor = TextPrimary,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+
+            // AJOUT - Pré-charger tous les onglets pour changement instantané
+            tabControl.SelectedIndexChanged += (s, e) =>
+            {
+                tabControl.SuspendLayout();
+                if (tabControl.SelectedTab != null)
+                {
+                    tabControl.SelectedTab.SuspendLayout();
+                    tabControl.SelectedTab.ResumeLayout(false);
+                }
+                tabControl.ResumeLayout(false);
             };
             this.Controls.Add(tabControl);
 
@@ -519,6 +592,9 @@ namespace FToolByTratox
                 }
 
                 tabControl.TabPages.Add(tab);
+
+                // AJOUT - Force le layout immédiatement
+                tab.PerformLayout();
             }
             CreateSettingsTab();
         }
@@ -2353,13 +2429,36 @@ namespace FToolByTratox
         {
             public GamingTabControl()
             {
-                this.SetStyle(ControlStyles.UserPaint, true);
-                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-                this.SetStyle(ControlStyles.DoubleBuffer, true);
-                this.SetStyle(ControlStyles.ResizeRedraw, true);
+                // OPTIMISATIONS MAXIMALES POUR CHANGEMENT D'ONGLET INSTANTANÉ
+                this.SetStyle(
+                    ControlStyles.AllPaintingInWmPaint |
+                    ControlStyles.UserPaint |
+                    ControlStyles.OptimizedDoubleBuffer |
+                    ControlStyles.ResizeRedraw |
+                    ControlStyles.CacheText |
+                    ControlStyles.Opaque,
+                    true
+                );
+                this.DoubleBuffered = true;
+                this.UpdateStyles();
+
                 this.SizeMode = TabSizeMode.FillToRight;
                 this.ItemSize = new Size(0, 35);
                 this.DrawMode = TabDrawMode.OwnerDrawFixed;
+            }
+
+            protected override void OnSelecting(TabControlCancelEventArgs e)
+            {
+                // Pas d'animation, changement immédiat
+                base.OnSelecting(e);
+                this.SuspendLayout();
+            }
+
+            protected override void OnSelected(TabControlEventArgs e)
+            {
+                base.OnSelected(e);
+                this.ResumeLayout(false);
+                this.Refresh(); // Force le rendu immédiat
             }
 
             protected override void OnPaint(PaintEventArgs e)
