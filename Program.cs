@@ -2,12 +2,18 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using GDI = System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+
+using SharpDX;
+using SharpDX.Direct2D1;
+using SharpDX.DXGI;
+using D2D1 = SharpDX.Direct2D1;
 
 namespace FToolByTratox
 {
@@ -37,6 +43,10 @@ namespace FToolByTratox
 
         [DllImport("user32.dll")]
         static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        private D2D1.Factory d2dFactory;
+        private WindowRenderTarget renderTarget;
+        private Dictionary<string, D2D1.SolidColorBrush> brushCache = new Dictionary<string, D2D1.SolidColorBrush>();
 
         const uint WM_KEYDOWN = 0x0100;
         const uint WM_KEYUP = 0x0101;
@@ -126,26 +136,38 @@ namespace FToolByTratox
         private Dictionary<int, Keys> registeredHotKeys = new Dictionary<int, Keys>();
         private Point mouseLocation;
         private bool isDragging = false;
-        private readonly Color PrimaryBackground = Color.FromArgb(255, 26, 26, 35);
-        private readonly Color SecondaryBackground = Color.FromArgb(255, 35, 35, 50);
-        private readonly Color CardBackground = Color.FromArgb(255, 45, 45, 65);
-        private readonly Color AccentRed = Color.FromArgb(255, 255, 66, 77);
-        private readonly Color AccentBlue = Color.FromArgb(255, 66, 165, 245);
-        private readonly Color AccentGreen = Color.FromArgb(255, 76, 175, 80);
-        private readonly Color AccentPurple = Color.FromArgb(255, 171, 71, 188);
-        private readonly Color TextPrimary = Color.FromArgb(255, 255, 255, 255);
-        private readonly Color TextSecondary = Color.FromArgb(255, 190, 190, 190);
-        private readonly Color TextMuted = Color.FromArgb(255, 140, 140, 140);
-        private readonly Color BorderColor = Color.FromArgb(255, 65, 65, 85);
-        private readonly Color HoverColor = Color.FromArgb(255, 55, 55, 75);
-        private readonly Color WarningColor = Color.FromArgb(255, 255, 193, 7);
-        private readonly Color DangerColor = Color.FromArgb(255, 244, 67, 54);
+        private readonly Color PrimaryBackground = GDI.Color.FromArgb(255, 26, 26, 35);
+        private readonly Color SecondaryBackground = GDI.Color.FromArgb(255, 35, 35, 50);
+        private readonly Color CardBackground = GDI.Color.FromArgb(255, 45, 45, 65);
+        private readonly Color AccentRed = GDI.Color.FromArgb(255, 255, 66, 77);
+        private readonly Color AccentBlue = GDI.Color.FromArgb(255, 66, 165, 245);
+        private readonly Color AccentGreen = GDI.Color.FromArgb(255, 76, 175, 80);
+        private readonly Color AccentPurple = GDI.Color.FromArgb(255, 171, 71, 188);
+        private readonly Color TextPrimary = GDI.Color.FromArgb(255, 255, 255, 255);
+        private readonly Color TextSecondary = GDI.Color.FromArgb(255, 190, 190, 190);
+        private readonly Color TextMuted = GDI.Color.FromArgb(255, 140, 140, 140);
+        private readonly Color BorderColor = GDI.Color.FromArgb(255, 65, 65, 85);
+        private readonly Color HoverColor = GDI.Color.FromArgb(255, 55, 55, 75);
+        private readonly Color WarningColor = GDI.Color.FromArgb(255, 255, 193, 7);
+        private readonly Color DangerColor = GDI.Color.FromArgb(255, 244, 67, 54);
 
         public MainForm()
         {
+            InitializeDirect2D(); // <-- AJOUTER ICI
             InitializeKeyNames();
             InitializeComponent();
         }
+
+        private void InitializeDirect2D()
+        {
+            try
+            {
+                d2dFactory = new D2D1.Factory(FactoryType.MultiThreaded);
+                Debug.WriteLine("✅ DirectX 11 activé");
+            }
+            catch { }
+        }
+
         protected override void WndProc(ref Message m)
         {
             switch (m.Msg)
@@ -927,7 +949,7 @@ namespace FToolByTratox
             {
                 Location = new Point(0, 0),
                 Size = new Size(450, 25),
-                BackColor = Color.FromArgb(50, AccentRed.R, AccentRed.G, AccentRed.B)
+                BackColor = GDI.Color.FromArgb(50, AccentRed.R, AccentRed.G, AccentRed.B)
             };
 
             Label cardTitle = new Label
@@ -1726,6 +1748,11 @@ namespace FToolByTratox
             statusUpdateTimer?.Dispose();
 
             Debug.WriteLine("FTool by Tratox closed properly");
+
+            // Cleanup DirectX
+            renderTarget?.Dispose();
+            d2dFactory?.Dispose();
+            foreach (var brush in brushCache.Values) brush?.Dispose();
         }
 
         #region Modern Gaming UI Controls
@@ -1737,7 +1764,7 @@ namespace FToolByTratox
 
             protected override void OnPaint(PaintEventArgs e)
             {
-                using (LinearGradientBrush brush = new LinearGradientBrush(
+                using (System.Drawing.Drawing2D.LinearGradientBrush brush = new System.Drawing.Drawing2D.LinearGradientBrush(
                     this.ClientRectangle, StartColor, EndColor, LinearGradientMode.Vertical))
                 {
                     e.Graphics.FillRectangle(brush, this.ClientRectangle);
@@ -1775,13 +1802,13 @@ namespace FToolByTratox
 
                 Rectangle scrollRect = new Rectangle(this.Width - 15, 0, 15, this.Height);
 
-                using (LinearGradientBrush bgBrush = new LinearGradientBrush(
-                    scrollRect, Color.FromArgb(100, ScrollbarBackColor), ScrollbarBackColor, LinearGradientMode.Vertical))
+                using (System.Drawing.Drawing2D.LinearGradientBrush bgBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                    scrollRect, GDI.Color.FromArgb(100, ScrollbarBackColor), ScrollbarBackColor, LinearGradientMode.Vertical))
                 {
                     g.FillRectangle(bgBrush, scrollRect);
                 }
 
-                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarBackColor), 1))
+                using (Pen borderPen = new Pen(GDI.Color.FromArgb(150, ScrollbarBackColor), 1))
                 {
                     g.DrawRectangle(borderPen, scrollRect);
                 }
@@ -1797,19 +1824,19 @@ namespace FToolByTratox
 
                     Rectangle thumbRect = new Rectangle(this.Width - 13, thumbTop, 11, thumbHeight);
 
-                    using (LinearGradientBrush thumbBrush = new LinearGradientBrush(
-                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical))
+                    using (System.Drawing.Drawing2D.LinearGradientBrush thumbBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                        thumbRect, ScrollbarColor, GDI.Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical))
                     {
                         g.FillRoundedRectangle(thumbBrush, thumbRect, 5);
                     }
 
-                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2))
+                    using (Pen glowPen = new Pen(GDI.Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2))
                     {
                         Rectangle glowRect = new Rectangle(thumbRect.X - 1, thumbRect.Y - 1, thumbRect.Width + 2, thumbRect.Height + 2);
                         g.DrawRoundedRectangle(glowPen, glowRect, 6);
                     }
 
-                    using (Pen highlightPen = new Pen(Color.FromArgb(200, 255, 255, 255), 1))
+                    using (Pen highlightPen = new Pen(GDI.Color.FromArgb(200, 255, 255, 255), 1))
                     {
                         Rectangle highlightRect = new Rectangle(thumbRect.X + 2, thumbRect.Y + 2, thumbRect.Width - 4, thumbRect.Height - 4);
                         g.DrawRoundedRectangle(highlightPen, highlightRect, 3);
@@ -1832,7 +1859,7 @@ namespace FToolByTratox
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (SolidBrush glassBrush = new SolidBrush(Color.FromArgb(60, 255, 255, 255)))
+                using (SolidBrush glassBrush = new SolidBrush(GDI.Color.FromArgb(60, 255, 255, 255)))
                 {
                     GraphicsPath glassPath = GetRoundedRectPath(this.ClientRectangle, 12);
                     e.Graphics.FillPath(glassBrush, glassPath);
@@ -1847,7 +1874,7 @@ namespace FToolByTratox
                     path.Dispose();
                 }
 
-                using (Pen neonPen = new Pen(Color.FromArgb(100, 255, 66, 77), 2))
+                using (Pen neonPen = new Pen(GDI.Color.FromArgb(100, 255, 66, 77), 2))
                 {
                     GraphicsPath borderPath = GetRoundedRectPath(
                         new Rectangle(1, 1, Width - 3, Height - 3), 12);
@@ -1884,7 +1911,7 @@ namespace FToolByTratox
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ?
-                    Color.FromArgb(Math.Min(255, this.BackColor.R + 20),
+                    GDI.Color.FromArgb(Math.Min(255, this.BackColor.R + 20),
                                    Math.Min(255, this.BackColor.G + 20),
                                    Math.Min(255, this.BackColor.B + 20)) :
                     this.BackColor;
@@ -1898,7 +1925,7 @@ namespace FToolByTratox
 
                 if (isHovered)
                 {
-                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3))
+                    using (Pen glowPen = new Pen(GDI.Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3))
                     {
                         GraphicsPath glowPath = GetRoundedRectPath(
                             new Rectangle(-1, -1, Width + 1, Height + 1), 8);
@@ -1947,7 +1974,7 @@ namespace FToolByTratox
                 {
                     for (int i = 1; i <= 3; i++)
                     {
-                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2))
+                        using (Pen glowPen = new Pen(GDI.Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2))
                         {
                             GraphicsPath glowPath = GetRoundedRectPath(
                                 new Rectangle(rect.X - i, rect.Y - i,
@@ -1989,9 +2016,9 @@ namespace FToolByTratox
             {
                 this.FlatStyle = FlatStyle.Flat;
                 this.FlatAppearance.BorderSize = 1;
-                this.FlatAppearance.BorderColor = Color.FromArgb(255, 65, 65, 85);
-                this.BackColor = Color.FromArgb(255, 35, 35, 50);
-                this.ForeColor = Color.FromArgb(255, 190, 190, 190);
+                this.FlatAppearance.BorderColor = GDI.Color.FromArgb(255, 65, 65, 85);
+                this.BackColor = GDI.Color.FromArgb(255, 35, 35, 50);
+                this.ForeColor = GDI.Color.FromArgb(255, 190, 190, 190);
                 this.Font = new Font("Segoe UI", 8, FontStyle.Regular);
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
@@ -2002,8 +2029,8 @@ namespace FToolByTratox
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
-                Color bgColor = isHovered ? Color.FromArgb(255, 45, 45, 65) : this.BackColor;
-                Color borderColor = isHovered ? Color.FromArgb(255, 171, 71, 188) : Color.FromArgb(255, 65, 65, 85);
+                Color bgColor = isHovered ? GDI.Color.FromArgb(255, 45, 45, 65) : this.BackColor;
+                Color borderColor = isHovered ? GDI.Color.FromArgb(255, 171, 71, 188) : GDI.Color.FromArgb(255, 65, 65, 85);
 
                 using (SolidBrush brush = new SolidBrush(bgColor))
                 {
@@ -2040,14 +2067,14 @@ namespace FToolByTratox
             {
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (SolidBrush clearBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
+                using (SolidBrush clearBrush = new SolidBrush(GDI.Color.FromArgb(255, 26, 26, 35)))
                 {
                     pevent.Graphics.FillRectangle(clearBrush, this.ClientRectangle);
                 }
 
                 if (isHovered)
                 {
-                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(80, 255, 255, 255)))
+                    using (SolidBrush brush = new SolidBrush(GDI.Color.FromArgb(80, 255, 255, 255)))
                     {
                         pevent.Graphics.FillEllipse(brush, 2, 2, Width - 4, Height - 4);
                     }
@@ -2078,7 +2105,7 @@ namespace FToolByTratox
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ?
-                    Color.FromArgb(Math.Min(255, this.BackColor.R + 30),
+                    GDI.Color.FromArgb(Math.Min(255, this.BackColor.R + 30),
                                    Math.Min(255, this.BackColor.G + 30),
                                    Math.Min(255, this.BackColor.B + 30)) :
                     this.BackColor;
@@ -2109,12 +2136,12 @@ namespace FToolByTratox
 
                 Rectangle checkBoxRect = new Rectangle(0, 2, 16, 16);
                 Rectangle textRect = new Rectangle(22, 0, Width - 22, Height);
-                Color boxColor = this.Checked ? Color.FromArgb(255, 171, 71, 188) : Color.FromArgb(255, 65, 65, 85);
+                Color boxColor = this.Checked ? GDI.Color.FromArgb(255, 171, 71, 188) : GDI.Color.FromArgb(255, 65, 65, 85);
                 using (SolidBrush brush = new SolidBrush(boxColor))
                 {
                     pevent.Graphics.FillRectangle(brush, checkBoxRect);
                 }
-                using (Pen borderPen = new Pen(Color.FromArgb(255, 90, 90, 110), 1))
+                using (Pen borderPen = new Pen(GDI.Color.FromArgb(255, 90, 90, 110), 1))
                 {
                     pevent.Graphics.DrawRectangle(borderPen, checkBoxRect);
                 }
@@ -2173,13 +2200,13 @@ namespace FToolByTratox
                 int alpha = (int)(255 * Math.Max(0.3f, Math.Min(1.0f, pulseAlpha)));
 
                 using (SolidBrush brush = new SolidBrush(
-                    Color.FromArgb(alpha, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
+                    GDI.Color.FromArgb(alpha, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
                 {
                     e.Graphics.FillEllipse(brush, 1, 1, Width - 2, Height - 2);
                 }
 
                 using (SolidBrush glowBrush = new SolidBrush(
-                    Color.FromArgb(alpha / 3, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
+                    GDI.Color.FromArgb(alpha / 3, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
                 {
                     e.Graphics.FillEllipse(glowBrush, 0, 0, Width, Height);
                 }
@@ -2278,7 +2305,7 @@ namespace FToolByTratox
                     e.Graphics.FillRectangle(brush, rect);
                 }
 
-                Color borderColor = isFocused ? Color.FromArgb(255, 255, 66, 77) : Color.FromArgb(255, 65, 65, 85);
+                Color borderColor = isFocused ? GDI.Color.FromArgb(255, 255, 66, 77) : GDI.Color.FromArgb(255, 65, 65, 85);
                 using (Pen pen = new Pen(borderColor, isFocused ? 2 : 1))
                 {
                     e.Graphics.DrawRectangle(pen, rect);
@@ -2307,7 +2334,7 @@ namespace FToolByTratox
             {
                 e.Graphics.Clear(this.BackColor);
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
+                using (SolidBrush bgBrush = new SolidBrush(GDI.Color.FromArgb(255, 26, 26, 35)))
                 {
                     e.Graphics.FillRectangle(bgBrush, 0, 0, this.Width, this.ItemSize.Height);
                 }
@@ -2317,23 +2344,23 @@ namespace FToolByTratox
                     Rectangle tabRect = this.GetTabRect(i);
                     bool isSelected = (i == this.SelectedIndex);
 
-                    Color startColor = isSelected ? Color.FromArgb(255, 255, 66, 77) : Color.FromArgb(255, 45, 45, 65);
-                    Color endColor = isSelected ? Color.FromArgb(255, 200, 50, 60) : Color.FromArgb(255, 35, 35, 50);
+                    Color startColor = isSelected ? GDI.Color.FromArgb(255, 255, 66, 77) : GDI.Color.FromArgb(255, 45, 45, 65);
+                    Color endColor = isSelected ? GDI.Color.FromArgb(255, 200, 50, 60) : GDI.Color.FromArgb(255, 35, 35, 50);
 
-                    using (LinearGradientBrush brush = new LinearGradientBrush(tabRect, startColor, endColor, LinearGradientMode.Vertical))
+                    using (System.Drawing.Drawing2D.LinearGradientBrush brush = new System.Drawing.Drawing2D.LinearGradientBrush(tabRect, startColor, endColor, LinearGradientMode.Vertical))
                     {
                         e.Graphics.FillRectangle(brush, tabRect);
                     }
 
                     if (isSelected)
                     {
-                        using (Pen neonPen = new Pen(Color.FromArgb(150, 255, 66, 77), 2))
+                        using (Pen neonPen = new Pen(GDI.Color.FromArgb(150, 255, 66, 77), 2))
                         {
                             e.Graphics.DrawRectangle(neonPen, tabRect.X, tabRect.Y, tabRect.Width - 1, tabRect.Height - 1);
                         }
                     }
 
-                    Color textColor = isSelected ? Color.White : Color.FromArgb(255, 190, 190, 190);
+                    Color textColor = isSelected ? Color.White : GDI.Color.FromArgb(255, 190, 190, 190);
                     TextRenderer.DrawText(e.Graphics, this.TabPages[i].Text,
                         new Font("Segoe UI", 9, FontStyle.Bold), tabRect, textColor,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -2347,7 +2374,7 @@ namespace FToolByTratox
                 if (totalTabsWidth < this.Width)
                 {
                     Rectangle remainingRect = new Rectangle(totalTabsWidth, 0, this.Width - totalTabsWidth, this.ItemSize.Height);
-                    using (SolidBrush remainingBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
+                    using (SolidBrush remainingBrush = new SolidBrush(GDI.Color.FromArgb(255, 26, 26, 35)))
                     {
                         e.Graphics.FillRectangle(remainingBrush, remainingRect);
                     }
@@ -2408,7 +2435,7 @@ namespace FToolByTratox
                 this.FormBorderStyle = FormBorderStyle.FixedDialog;
                 this.MaximizeBox = false;
                 this.MinimizeBox = false;
-                this.BackColor = Color.FromArgb(255, 26, 26, 35);
+                this.BackColor = GDI.Color.FromArgb(255, 26, 26, 35);
                 this.ForeColor = Color.White;
                 this.KeyPreview = true;
 
@@ -2418,7 +2445,7 @@ namespace FToolByTratox
                     Location = new Point(20, 20),
                     Size = new Size(360, 40),
                     Font = new Font("Segoe UI", 10, FontStyle.Regular),
-                    ForeColor = Color.FromArgb(255, 190, 190, 190),
+                    ForeColor = GDI.Color.FromArgb(255, 190, 190, 190),
                     BackColor = Color.Transparent,
                     TextAlign = ContentAlignment.MiddleCenter
                 };
@@ -2429,7 +2456,7 @@ namespace FToolByTratox
                     Location = new Point(20, 80),
                     Size = new Size(360, 30),
                     Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(255, 171, 71, 188),
+                    ForeColor = GDI.Color.FromArgb(255, 171, 71, 188),
                     BackColor = Color.Transparent,
                     TextAlign = ContentAlignment.MiddleCenter,
                     BorderStyle = BorderStyle.FixedSingle
@@ -2440,7 +2467,7 @@ namespace FToolByTratox
                     Text = "Confirm",
                     Location = new Point(220, 130),
                     Size = new Size(80, 30),
-                    BackColor = Color.FromArgb(255, 76, 175, 80),
+                    BackColor = GDI.Color.FromArgb(255, 76, 175, 80),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     Font = new Font("Segoe UI", 9, FontStyle.Bold),
@@ -2454,7 +2481,7 @@ namespace FToolByTratox
                     Text = "Cancel",
                     Location = new Point(310, 130),
                     Size = new Size(80, 30),
-                    BackColor = Color.FromArgb(255, 244, 67, 54),
+                    BackColor = GDI.Color.FromArgb(255, 244, 67, 54),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     Font = new Font("Segoe UI", 9, FontStyle.Bold)
@@ -2555,12 +2582,12 @@ namespace FToolByTratox
         #endregion
         private Icon CreateModernIcon()
         {
-            Bitmap bitmap = new Bitmap(32, 32);
+            GDI.Bitmap bitmap = new GDI.Bitmap(32, 32);
             using (Graphics g = Graphics.FromImage(bitmap))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (LinearGradientBrush gradBrush = new LinearGradientBrush(
+                using (System.Drawing.Drawing2D.LinearGradientBrush gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
                     new Rectangle(0, 0, 32, 32), AccentRed, AccentPurple, LinearGradientMode.Horizontal))
                 {
                     g.FillEllipse(gradBrush, 2, 2, 28, 28);
@@ -2582,7 +2609,7 @@ namespace FToolByTratox
     }
     public static class GraphicsExtensions
     {
-        public static void FillRoundedRectangle(this Graphics graphics, Brush brush, Rectangle rect, int radius)
+        public static void FillRoundedRectangle(this Graphics graphics, GDI.Brush brush, Rectangle rect, int radius)
         {
             using (GraphicsPath path = GetRoundedRectPath(rect, radius))
             {
