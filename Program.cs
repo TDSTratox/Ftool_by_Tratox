@@ -38,6 +38,19 @@ namespace FToolByTratox
         [DllImport("user32.dll")]
         static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
+        [DllImport("user32.dll")]
+        static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc callback, IntPtr hInstance, uint threadId);
+
+        [DllImport("user32.dll")]
+        static extern bool UnhookWindowsHookEx(IntPtr hInstance);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr CallNextHookEx(IntPtr idHook, int nCode, IntPtr wParam, IntPtr lParam);
+
+        private const int WH_MOUSE_LL = 14;
+
+        private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
         const uint WM_KEYDOWN = 0x0100;
         const uint WM_KEYUP = 0x0101;
         const uint WM_CHAR = 0x0102;
@@ -69,7 +82,7 @@ namespace FToolByTratox
             {"Num5", 101}, {"Num6", 102}, {"Num7", 103}, {"Num8", 104}, {"Num9", 105},
             {"NumPlus", 107}, {"NumMinus", 109}, {"NumMultiply", 106}, {"NumDivide", 111},
             {"NumDecimal", 110}, {"NumEnter", 13},
-            
+
             {"Space", 32}, {"Enter", 13}, {"Tab", 9}, {"Escape", 27},
             {"Backspace", 8}, {"Delete", 46}, {"Insert", 45},
             {"Home", 36}, {"End", 35}, {"PageUp", 33}, {"PageDown", 34},
@@ -78,7 +91,14 @@ namespace FToolByTratox
             {"G", 71}, {"H", 72}, {"I", 73}, {"J", 74}, {"K", 75}, {"L", 76},
             {"M", 77}, {"N", 78}, {"O", 79}, {"P", 80}, {"Q", 81}, {"R", 82},
             {"S", 83}, {"T", 84}, {"U", 85}, {"V", 86}, {"W", 87}, {"X", 88},
-            {"Y", 89}, {"Z", 90}
+            {"Y", 89}, {"Z", 90},
+
+            // Ajout des boutons de souris
+            {"Mouse4", 0x05},  // X1 (bouton latéral arrière)
+            {"Mouse5", 0x06},  // X2 (bouton latéral avant)
+            {"LeftClick", 0x01},   // Bouton gauche
+            {"RightClick", 0x02},  // Bouton droit
+            {"MiddleClick", 0x04}  // Bouton du milieu
 
         };
         private static readonly Dictionary<Keys, string> KeyNames = new Dictionary<Keys, string>();
@@ -95,11 +115,9 @@ namespace FToolByTratox
             public Panel Container { get; set; }
             public Panel StatusIndicator { get; set; }
             public Label StatusLabel { get; set; }
-            public Label ActionsLabel { get; set; }
             public bool IsRunning { get; set; }
             public System.Windows.Forms.Timer SpamTimer { get; set; }
             public DateTime LastActionTime { get; set; }
-            public int ActionCount { get; set; }
             public string HotKey { get; set; } = "";
             public int HotKeyId { get; set; } = -1;
         }
@@ -215,12 +233,26 @@ namespace FToolByTratox
             KeyNames[Keys.NumPad3] = "Num3"; KeyNames[Keys.NumPad4] = "Num4"; KeyNames[Keys.NumPad5] = "Num5";
             KeyNames[Keys.NumPad6] = "Num6"; KeyNames[Keys.NumPad7] = "Num7"; KeyNames[Keys.NumPad8] = "Num8";
             KeyNames[Keys.NumPad9] = "Num9";
+
+            // Ajout des boutons de souris
+            KeyNames[Keys.XButton1] = "Mouse4";
+            KeyNames[Keys.XButton2] = "Mouse5";
+            KeyNames[Keys.LButton] = "LeftClick";
+            KeyNames[Keys.RButton] = "RightClick";
+            KeyNames[Keys.MButton] = "MiddleClick";
         }
 
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            this.Text = "FTool by Tratox v1.0";
+
+            // NOUVELLES LIGNES D'OPTIMISATION
+            this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            this.SetStyle(ControlStyles.UserPaint, true);
+            this.UpdateStyles();
+
+            this.Text = "FTool by Tratox v1.7";
             this.Size = new Size(520, 730);
             this.MinimumSize = new Size(520, 650);
             this.BackColor = PrimaryBackground;
@@ -233,14 +265,32 @@ namespace FToolByTratox
 
             CreateCustomTitleBar();
             CreateMainInterface();
-            windowCheckTimer = new System.Windows.Forms.Timer { Interval = 2000, Enabled = true };
+            windowCheckTimer = new System.Windows.Forms.Timer { Interval = 10000, Enabled = true };
             windowCheckTimer.Tick += CheckWindowsExist;
-            statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 1000, Enabled = true };
+            statusUpdateTimer = new System.Windows.Forms.Timer { Interval = 2000, Enabled = true };
             statusUpdateTimer.Tick += UpdateStatus;
             LoadSettings();
             this.FormClosing += MainForm_FormClosing;
             this.Resize += MainForm_Resize;
             this.ResumeLayout();
+        }
+
+        private void UpdateSpammerHotkeyLabel(int spammerIndex, string hotkeyText)
+        {
+            if (spammerIndex >= spammers.Count) return;
+
+            var spammer = spammers[spammerIndex];
+
+            // Trouver le label "No hotkey" dans le container du spammer
+            foreach (Control control in spammer.Container.Controls)
+            {
+                if (control is Label label && label.Location == new Point(100, 80))
+                {
+                    label.Text = string.IsNullOrEmpty(hotkeyText) ? "No hotkey" : hotkeyText;
+                    label.ForeColor = string.IsNullOrEmpty(hotkeyText) ? TextMuted : AccentPurple;
+                    break;
+                }
+            }
         }
 
         private void CreateCustomTitleBar()
@@ -286,7 +336,7 @@ namespace FToolByTratox
 
             Label versionLabel = new Label
             {
-                Text = "v1.0",
+                Text = "v1.7",
                 Font = new Font("Segoe UI", 8, FontStyle.Regular),
                 ForeColor = AccentBlue,
                 Location = new Point(190, 10),
@@ -432,10 +482,11 @@ namespace FToolByTratox
                 connectionStatusLabel, masterStartStopButton, statsLabel
             });
             this.Controls.Add(headerPanel);
+
             tabControl = new GamingTabControl
             {
                 Location = new Point(15, 140),
-                Size = new Size(590, 630), 
+                Size = new Size(590, 630),
                 BackColor = PrimaryBackground,
                 ForeColor = TextPrimary,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
@@ -722,6 +773,8 @@ namespace FToolByTratox
                     if (spammerIndex < spammers.Count)
                     {
                         spammers[spammerIndex].HotKey = hotkeyString;
+                        // AJOUTER CETTE LIGNE : Mettre à jour le label dans la carte du spammer
+                        UpdateSpammerHotkeyLabel(spammerIndex, hotkeyString);
                     }
                 }
 
@@ -758,6 +811,8 @@ namespace FToolByTratox
                 if (spammerIndex < spammers.Count)
                 {
                     spammers[spammerIndex].HotKey = "";
+                    // AJOUTER CETTE LIGNE : Mettre à jour le label
+                    UpdateSpammerHotkeyLabel(spammerIndex, "");
                 }
 
                 UpdateHotkeyButtonText(tag, "No hotkey");
@@ -870,6 +925,22 @@ namespace FToolByTratox
                     case "WIN":
                         modifiers |= MOD_WIN;
                         break;
+                    // Ajout de la gestion des boutons de souris
+                    case "MOUSE4":
+                        key = Keys.XButton1;
+                        break;
+                    case "MOUSE5":
+                        key = Keys.XButton2;
+                        break;
+                    case "LEFTCLICK":
+                        key = Keys.LButton;
+                        break;
+                    case "RIGHTCLICK":
+                        key = Keys.RButton;
+                        break;
+                    case "MIDDLECLICK":
+                        key = Keys.MButton;
+                        break;
                     default:
                         Keys parsedKey;
                         if (Enum.TryParse(trimmedPart, true, out parsedKey))
@@ -920,6 +991,9 @@ namespace FToolByTratox
                 Size = new Size(450, 100),
                 BackColor = CardBackground
             };
+            card.GetType().GetProperty("DoubleBuffered",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.SetValue(card, true, null);
             spammer.Container = card;
             parent.Controls.Add(card);
 
@@ -963,18 +1037,6 @@ namespace FToolByTratox
             cardHeader.Controls.AddRange(new Control[] { cardTitle, statusLabel, statusIndicator });
             card.Controls.Add(cardHeader);
 
-            Label actionsLabel = new Label
-            {
-                Text = "Actions: 0",
-                Location = new Point(10, 80),
-                Size = new Size(80, 12),
-                ForeColor = AccentBlue,
-                Font = new Font("Consolas", 7, FontStyle.Regular),
-                BackColor = Color.Transparent
-            };
-            spammer.ActionsLabel = actionsLabel;
-            card.Controls.Add(actionsLabel);
-
             Label hotkeyLabel = new Label
             {
                 Text = "No hotkey",
@@ -982,7 +1044,8 @@ namespace FToolByTratox
                 Size = new Size(80, 12),
                 ForeColor = AccentPurple,
                 Font = new Font("Consolas", 7, FontStyle.Regular),
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Tag = $"HotkeyLabel_{index}" // Ajouter un tag pour l'identifier
             };
             card.Controls.Add(hotkeyLabel);
 
@@ -1048,7 +1111,7 @@ namespace FToolByTratox
             spammer.FKeyCombo = fkeyCombo;
             card.Controls.Add(fkeyCombo);
 
-            CreateCompactLabel(card, "SKILL", 355, 26, new Font("Segoe UI", 9, FontStyle.Bold));
+            CreateCompactLabel(card, "BAR", 355, 26, new Font("Segoe UI", 9, FontStyle.Bold));
             ComboBox skillCombo = new GamingComboBox
             {
                 Location = new Point(355, 45),
@@ -1078,6 +1141,13 @@ namespace FToolByTratox
             card.Controls.Add(resetButton);
 
             spammers.Add(spammer);
+
+            // Mettre à jour le label avec le hotkey si existant
+            if (settings.SpammerHotKeys.ContainsKey(index))
+            {
+                UpdateSpammerHotkeyLabel(index, settings.SpammerHotKeys[index]);
+            }
+
             UpdateSpammerHotkeyDisplay(index, hotkeyLabel);
         }
 
@@ -1135,8 +1205,6 @@ namespace FToolByTratox
             spammers[index].IntervalText.Text = "0";
             spammers[index].FKeyCombo.SelectedIndex = 0;
             spammers[index].SkillCombo.SelectedIndex = 0;
-            spammers[index].ActionCount = 0;
-            spammers[index].ActionsLabel.Text = "Actions: 0";
             SaveSettings();
         }
         private void MasterStartStop_Click(object sender, EventArgs e)
@@ -1187,39 +1255,60 @@ namespace FToolByTratox
             return window != "Select Window" && !string.IsNullOrEmpty(window) &&
                    ((fkey != " " && !string.IsNullOrEmpty(fkey)) || (skill != " " && !string.IsNullOrEmpty(skill)));
         }
+        private string lastConnectionStatus = "";
+        private bool lastAnyRunning = false;
+
+        private int updateCounter = 0;
+
         private void UpdateStatus(object sender, EventArgs e)
         {
-            var processes = Process.GetProcessesByName("Neuz");
-            if (processes.Length > 0)
+            updateCounter++;
+
+            // Mettre à jour le statut de connexion TOUTES les 2 itérations (4 secondes)
+            if (updateCounter % 2 == 0)
             {
-                connectionStatusLabel.Text = $"✅ {processes.Length} Flyff process(es) detected";
-                connectionStatusLabel.ForeColor = AccentGreen;
-            }
-            else
-            {
-                connectionStatusLabel.Text = "❌ No Flyff process found";
-                connectionStatusLabel.ForeColor = AccentRed;
+                var processes = Process.GetProcessesByName("Neuz");
+                string newConnectionStatus;
+
+                if (processes.Length > 0)
+                    newConnectionStatus = $"✅ {processes.Length} Flyff process(es) detected";
+                else
+                    newConnectionStatus = "❌ No Flyff process found";
+
+                if (newConnectionStatus != lastConnectionStatus)
+                {
+                    connectionStatusLabel.Text = newConnectionStatus;
+                    connectionStatusLabel.ForeColor = processes.Length > 0 ? AccentGreen : AccentRed;
+                    lastConnectionStatus = newConnectionStatus;
+                }
             }
 
-            for (int i = 0; i < spammers.Count; i++)
+            // Le reste du code reste identique...
+            if (tabControl.SelectedIndex >= 4) return;
+
+            int currentTab = tabControl.SelectedIndex;
+            int startIndex = currentTab * 5;
+            int endIndex = Math.Min(startIndex + 5, spammers.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
             {
                 var spammer = spammers[i];
-                if (spammer.IsRunning)
+                string newStatus = spammer.IsRunning ? "ACTIVE" : "IDLE";
+
+                if (spammer.StatusLabel.Text != newStatus)
                 {
-                    spammer.StatusLabel.Text = "ACTIVE";
-                    spammer.StatusLabel.ForeColor = AccentGreen;
-                    spammer.ActionsLabel.Text = $"Actions: {spammer.ActionCount}";
-                }
-                else
-                {
-                    spammer.StatusLabel.Text = "IDLE";
-                    spammer.StatusLabel.ForeColor = TextMuted;
+                    spammer.StatusLabel.Text = newStatus;
+                    spammer.StatusLabel.ForeColor = spammer.IsRunning ? AccentGreen : TextMuted;
                 }
             }
 
             bool anyRunning = spammers.Any(s => s.IsRunning);
-            masterStartStopButton.Text = anyRunning ? "⏹️ STOP ALL" : "🚀 START ALL";
-            masterStartStopButton.BackColor = anyRunning ? AccentRed : AccentGreen;
+            if (anyRunning != lastAnyRunning)
+            {
+                masterStartStopButton.Text = anyRunning ? "⏹️ STOP ALL" : "🚀 START ALL";
+                masterStartStopButton.BackColor = anyRunning ? AccentRed : AccentGreen;
+                lastAnyRunning = anyRunning;
+            }
         }
 
         private void StartButton_Click(object sender, EventArgs e)
@@ -1267,7 +1356,7 @@ namespace FToolByTratox
                         break;
                     }
                 }
-                catch {}
+                catch { }
             }
 
             if (!windowFound)
@@ -1298,10 +1387,8 @@ namespace FToolByTratox
                 spammer.WindowTitle = window;
                 spammer.IsRunning = true;
                 spammer.LastActionTime = DateTime.Now;
-                spammer.ActionCount = 0;
 
                 SendSpamToFlyff(spammer.TargetWindowHandle, fkey, skill);
-                spammer.ActionCount++;
 
                 int timerInterval = intervalValue == 0 ? 100 : intervalValue * 1000;
 
@@ -1314,6 +1401,13 @@ namespace FToolByTratox
                 spammer.StartButton.Text = "⏹️ STOP";
                 spammer.StartButton.BackColor = AccentRed;
                 spammer.StatusIndicator.BackColor = AccentGreen;
+
+                // NOUVEAU : Activer l'animation
+                if (spammer.StatusIndicator is PulsingIndicator pulse)
+                {
+                    pulse.SetActive(true);
+                }
+
                 spammer.WindowCombo.Enabled = false;
                 spammer.IntervalText.Enabled = false;
                 spammer.FKeyCombo.Enabled = false;
@@ -1348,7 +1442,6 @@ namespace FToolByTratox
                 }
 
                 SendSpamToFlyff(spammer.TargetWindowHandle, fkey, skill);
-                spammer.ActionCount++;
                 spammer.LastActionTime = DateTime.Now;
             }
             catch (Exception ex)
@@ -1417,7 +1510,7 @@ namespace FToolByTratox
                 spammer.SpamTimer = null;
                 spammer.IsRunning = false;
             }
-            catch {}
+            catch { }
 
             spammer.TargetWindowHandle = IntPtr.Zero;
             spammer.WindowTitle = "";
@@ -1425,12 +1518,17 @@ namespace FToolByTratox
             spammer.StartButton.Text = "▶️ START";
             spammer.StartButton.BackColor = AccentGreen;
             spammer.StatusIndicator.BackColor = BorderColor;
+
+            // NOUVEAU : Désactiver l'animation
+            if (spammer.StatusIndicator is PulsingIndicator pulse)
+            {
+                pulse.SetActive(false);
+            }
+
             spammer.WindowCombo.Enabled = true;
             spammer.IntervalText.Enabled = true;
             spammer.FKeyCombo.Enabled = true;
             spammer.SkillCombo.Enabled = true;
-
-            Debug.WriteLine($"Spammer {index} stopped - Actions performed: {spammer.ActionCount}");
         }
 
         private void WindowCombo_DropDown(object sender, EventArgs e)
@@ -1459,7 +1557,7 @@ namespace FToolByTratox
                         windowTitles.Add(proc.MainWindowTitle);
                     }
                 }
-                catch {}
+                catch { }
             }
             int selectedIndex = combo.FindStringExact(currentSelection);
             if (selectedIndex != -1)
@@ -1734,16 +1832,39 @@ namespace FToolByTratox
         {
             public Color StartColor { get; set; }
             public Color EndColor { get; set; }
+            private LinearGradientBrush cachedBrush;
+            private Rectangle lastRect;
+
+            public GradientPanel()
+            {
+                this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            }
 
             protected override void OnPaint(PaintEventArgs e)
             {
-                using (LinearGradientBrush brush = new LinearGradientBrush(
-                    this.ClientRectangle, StartColor, EndColor, LinearGradientMode.Vertical))
+                // Cache du brush
+                if (cachedBrush == null || lastRect != this.ClientRectangle)
                 {
-                    e.Graphics.FillRectangle(brush, this.ClientRectangle);
+                    cachedBrush?.Dispose();
+                    cachedBrush = new LinearGradientBrush(
+                        this.ClientRectangle, StartColor, EndColor, LinearGradientMode.Vertical);
+                    lastRect = this.ClientRectangle;
                 }
+
+                e.Graphics.FillRectangle(cachedBrush, this.ClientRectangle);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    cachedBrush?.Dispose();
+                }
+                base.Dispose(disposing);
             }
         }
+
 
         public class GamingScrollablePanel : Panel
         {
@@ -1756,9 +1877,10 @@ namespace FToolByTratox
                 this.AutoScroll = true;
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-                this.SetStyle(ControlStyles.DoubleBuffer, true);
+                this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
                 this.SetStyle(ControlStyles.ResizeRedraw, true);
             }
+
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
@@ -1769,21 +1891,17 @@ namespace FToolByTratox
                     DrawCustomScrollbar(e.Graphics);
                 }
             }
+
             private void DrawCustomScrollbar(Graphics g)
             {
                 if (!showCustomScrollbar) return;
 
                 Rectangle scrollRect = new Rectangle(this.Width - 15, 0, 15, this.Height);
 
-                using (LinearGradientBrush bgBrush = new LinearGradientBrush(
-                    scrollRect, Color.FromArgb(100, ScrollbarBackColor), ScrollbarBackColor, LinearGradientMode.Vertical))
+                // Couleur unie simple
+                using (SolidBrush bgBrush = new SolidBrush(ScrollbarBackColor))
                 {
                     g.FillRectangle(bgBrush, scrollRect);
-                }
-
-                using (Pen borderPen = new Pen(Color.FromArgb(150, ScrollbarBackColor), 1))
-                {
-                    g.DrawRectangle(borderPen, scrollRect);
                 }
 
                 if (this.VerticalScroll.Maximum > 0)
@@ -1797,57 +1915,62 @@ namespace FToolByTratox
 
                     Rectangle thumbRect = new Rectangle(this.Width - 13, thumbTop, 11, thumbHeight);
 
-                    using (LinearGradientBrush thumbBrush = new LinearGradientBrush(
-                        thumbRect, ScrollbarColor, Color.FromArgb(180, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), LinearGradientMode.Vertical))
+                    // Simple rectangle, pas de coins arrondis
+                    using (SolidBrush thumbBrush = new SolidBrush(ScrollbarColor))
                     {
-                        g.FillRoundedRectangle(thumbBrush, thumbRect, 5);
-                    }
-
-                    using (Pen glowPen = new Pen(Color.FromArgb(120, ScrollbarColor.R, ScrollbarColor.G, ScrollbarColor.B), 2))
-                    {
-                        Rectangle glowRect = new Rectangle(thumbRect.X - 1, thumbRect.Y - 1, thumbRect.Width + 2, thumbRect.Height + 2);
-                        g.DrawRoundedRectangle(glowPen, glowRect, 6);
-                    }
-
-                    using (Pen highlightPen = new Pen(Color.FromArgb(200, 255, 255, 255), 1))
-                    {
-                        Rectangle highlightRect = new Rectangle(thumbRect.X + 2, thumbRect.Y + 2, thumbRect.Width - 4, thumbRect.Height - 4);
-                        g.DrawRoundedRectangle(highlightPen, highlightRect, 3);
+                        g.FillRectangle(thumbBrush, thumbRect); // Changé de FillRoundedRectangle
                     }
                 }
             }
+
+            // Optimisation : Ne redessiner QUE lors du scroll
             protected override void WndProc(ref Message m)
             {
                 base.WndProc(ref m);
 
+                // Redraw seulement sur scroll
                 if (m.Msg == 0x20A || m.Msg == 0x115)
                 {
                     this.Invalidate();
                 }
             }
         }
+
         public class GlassCard : Panel
         {
+            // Cache pour éviter de recréer les paths à chaque paint
+            private GraphicsPath cachedPath;
+            private Rectangle lastRect;
+
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (SolidBrush glassBrush = new SolidBrush(Color.FromArgb(60, 255, 255, 255)))
+                // Vérifier si on doit recréer le path
+                if (cachedPath == null || lastRect != this.ClientRectangle)
                 {
-                    GraphicsPath glassPath = GetRoundedRectPath(this.ClientRectangle, 12);
-                    e.Graphics.FillPath(glassBrush, glassPath);
-                    glassPath.Dispose();
+                    cachedPath?.Dispose();
+                    cachedPath = GetRoundedRectPath(this.ClientRectangle, 12);
+                    lastRect = this.ClientRectangle;
                 }
 
+                // Effet glass simplifié (ou supprimer complètement pour plus de perf)
+                using (SolidBrush glassBrush = new SolidBrush(Color.FromArgb(30, 255, 255, 255))) // Réduit de 60 à 30
+                {
+                    e.Graphics.FillPath(glassBrush, cachedPath);
+                }
+
+                // Background
                 using (SolidBrush brush = new SolidBrush(this.BackColor))
                 {
-                    GraphicsPath path = GetRoundedRectPath(
+                    GraphicsPath innerPath = GetRoundedRectPath(
                         new Rectangle(1, 1, Width - 2, Height - 2), 12);
-                    e.Graphics.FillPath(brush, path);
-                    path.Dispose();
+                    e.Graphics.FillPath(brush, innerPath);
+                    innerPath.Dispose();
                 }
 
-                using (Pen neonPen = new Pen(Color.FromArgb(100, 255, 66, 77), 2))
+                // Border simplifié
+                using (Pen neonPen = new Pen(Color.FromArgb(80, 255, 66, 77), 1)) // Réduit opacité et épaisseur
                 {
                     GraphicsPath borderPath = GetRoundedRectPath(
                         new Rectangle(1, 1, Width - 3, Height - 3), 12);
@@ -1855,6 +1978,16 @@ namespace FToolByTratox
                     borderPath.Dispose();
                 }
             }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    cachedPath?.Dispose();
+                }
+                base.Dispose(disposing);
+            }
+
             private GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
             {
                 GraphicsPath path = new GraphicsPath();
@@ -1869,15 +2002,19 @@ namespace FToolByTratox
         public class GamingButton : Button
         {
             private bool isHovered = false;
+            private GraphicsPath cachedPath;
+            private Rectangle lastRect;
 
             public GamingButton()
             {
                 this.FlatStyle = FlatStyle.Flat;
                 this.FlatAppearance.BorderSize = 0;
                 this.SetStyle(ControlStyles.UserPaint, true);
+                this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true); // AJOUTER
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
                 this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
+
             protected override void OnPaint(PaintEventArgs pevent)
             {
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -1889,27 +2026,42 @@ namespace FToolByTratox
                                    Math.Min(255, this.BackColor.B + 20)) :
                     this.BackColor;
 
-                using (SolidBrush brush = new SolidBrush(bgColor))
+                // Cache du path
+                if (cachedPath == null || lastRect != rect)
                 {
-                    GraphicsPath path = GetRoundedRectPath(rect, 8);
-                    pevent.Graphics.FillPath(brush, path);
-                    path.Dispose();
+                    cachedPath?.Dispose();
+                    cachedPath = GetRoundedRectPath(rect, 8);
+                    lastRect = rect;
                 }
 
+                using (SolidBrush brush = new SolidBrush(bgColor))
+                {
+                    pevent.Graphics.FillPath(brush, cachedPath);
+                }
+
+                // Effet hover simplifié
                 if (isHovered)
                 {
-                    using (Pen glowPen = new Pen(Color.FromArgb(100, this.BackColor.R, this.BackColor.G, this.BackColor.B), 3))
+                    using (Pen glowPen = new Pen(Color.FromArgb(60, this.BackColor.R, this.BackColor.G, this.BackColor.B), 2)) // Réduit
                     {
-                        GraphicsPath glowPath = GetRoundedRectPath(
-                            new Rectangle(-1, -1, Width + 1, Height + 1), 8);
-                        pevent.Graphics.DrawPath(glowPen, glowPath);
-                        glowPath.Dispose();
+                        pevent.Graphics.DrawPath(glowPen, cachedPath);
                     }
                 }
+
                 TextRenderer.DrawText(pevent.Graphics, this.Text, this.Font,
                     this.ClientRectangle, this.ForeColor,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    cachedPath?.Dispose();
+                }
+                base.Dispose(disposing);
+            }
+
             private GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
             {
                 GraphicsPath path = new GraphicsPath();
@@ -1924,7 +2076,7 @@ namespace FToolByTratox
         public class NeonButton : Button
         {
             public Color GlowColor { get; set; } = Color.Red;
-            private bool isHovered = false;
+            //private bool isHovered = false;
 
             public NeonButton()
             {
@@ -1934,8 +2086,6 @@ namespace FToolByTratox
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
                 this.SetStyle(ControlStyles.SupportsTransparentBackColor, false);
-                this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
-                this.MouseLeave += (s, e) => { isHovered = false; this.Invalidate(); };
             }
             protected override void OnPaint(PaintEventArgs pevent)
             {
@@ -1943,21 +2093,7 @@ namespace FToolByTratox
                 pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle rect = new Rectangle(2, 2, Width - 4, Height - 4);
 
-                if (isHovered)
-                {
-                    for (int i = 1; i <= 3; i++)
-                    {
-                        using (Pen glowPen = new Pen(Color.FromArgb(50 - i * 15, GlowColor.R, GlowColor.G, GlowColor.B), i * 2))
-                        {
-                            GraphicsPath glowPath = GetRoundedRectPath(
-                                new Rectangle(rect.X - i, rect.Y - i,
-                                rect.Width + i * 2, rect.Height + i * 2), 10);
-                            pevent.Graphics.DrawPath(glowPen, glowPath);
-                            glowPath.Dispose();
-                        }
-                    }
-                }
-
+                // Garder seulement le remplissage simple
                 using (SolidBrush brush = new SolidBrush(this.BackColor))
                 {
                     GraphicsPath path = GetRoundedRectPath(rect, 8);
@@ -1999,7 +2135,7 @@ namespace FToolByTratox
             }
             protected override void OnPaint(PaintEventArgs pevent)
             {
-                pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                //pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ? Color.FromArgb(255, 45, 45, 65) : this.BackColor;
@@ -2038,7 +2174,7 @@ namespace FToolByTratox
 
             protected override void OnPaint(PaintEventArgs pevent)
             {
-                pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                //pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 using (SolidBrush clearBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
                 {
@@ -2074,7 +2210,7 @@ namespace FToolByTratox
 
             protected override void OnPaint(PaintEventArgs pevent)
             {
-                pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                // pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ?
@@ -2137,91 +2273,58 @@ namespace FToolByTratox
 
         public class PulsingIndicator : Panel
         {
-            private System.Windows.Forms.Timer pulseTimer;
-            private float pulseAlpha = 0.5f;
-            private bool pulseIncreasing = true;
+            // Supprimer complètement le timer
+            // private System.Windows.Forms.Timer pulseTimer; // SUPPRIMER
+            // private float pulseAlpha = 0.5f; // SUPPRIMER
+            // private bool pulseIncreasing = true; // SUPPRIMER
+            private bool isActive = false;
 
             public PulsingIndicator()
             {
-                pulseTimer = new System.Windows.Forms.Timer { Interval = 100 };
-                pulseTimer.Tick += (s, e) =>
-                {
-                    if (pulseIncreasing)
-                        pulseAlpha += 0.05f;
-                    else
-                        pulseAlpha -= 0.05f;
-
-                    if (pulseAlpha >= 1.0f)
-                    {
-                        pulseAlpha = 1.0f;
-                        pulseIncreasing = false;
-                    }
-                    else if (pulseAlpha <= 0.3f)
-                    {
-                        pulseAlpha = 0.3f;
-                        pulseIncreasing = true;
-                    }
-
-                    this.Invalidate();
-                };
-                pulseTimer.Start();
+                this.SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+                // NE PLUS créer de timer
             }
+
+            public void SetActive(bool active)
+            {
+                isActive = active;
+                this.Invalidate(); // Un seul refresh
+            }
+
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                int alpha = (int)(255 * Math.Max(0.3f, Math.Min(1.0f, pulseAlpha)));
+                // Couleur fixe au lieu d'animée
+                int alpha = isActive ? 255 : 100;
 
                 using (SolidBrush brush = new SolidBrush(
                     Color.FromArgb(alpha, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
                 {
                     e.Graphics.FillEllipse(brush, 1, 1, Width - 2, Height - 2);
                 }
-
-                using (SolidBrush glowBrush = new SolidBrush(
-                    Color.FromArgb(alpha / 3, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
-                {
-                    e.Graphics.FillEllipse(glowBrush, 0, 0, Width, Height);
-                }
             }
+
             protected override void Dispose(bool disposing)
             {
-                if (disposing)
-                {
-                    pulseTimer?.Stop();
-                    pulseTimer?.Dispose();
-                }
+                // Plus de timer à disposer
                 base.Dispose(disposing);
             }
         }
 
         public class AnimatedLabel : Label
         {
-            private System.Windows.Forms.Timer animationTimer;
-            private int animationFrame = 0;
-
+            // Supprimer complètement le timer et l'animation
             public AnimatedLabel()
             {
-                animationTimer = new System.Windows.Forms.Timer { Interval = 500 };
-                animationTimer.Tick += (s, e) =>
-                {
-                    animationFrame = (animationFrame + 1) % 4;
-                    if (this.Text.Contains("Scanning"))
-                    {
-                        string dots = new string('.', animationFrame);
-                        this.Text = "🔍 Scanning for Flyff processes" + dots;
-                    }
-                };
-                animationTimer.Start();
+                // Ne rien faire, label statique
             }
+
+            // Supprimer StartAnimation() et StopAnimation()
 
             protected override void Dispose(bool disposing)
             {
-                if (disposing)
-                {
-                    animationTimer?.Stop();
-                    animationTimer?.Dispose();
-                }
                 base.Dispose(disposing);
             }
         }
@@ -2252,6 +2355,21 @@ namespace FToolByTratox
 
                 e.DrawFocusRectangle();
             }
+        }
+
+        // NOUVELLE MÉTHODE : Trouver l'index du spammer depuis un control
+        private int GetSpammerIndexFromControl(Control control)
+        {
+            for (int i = 0; i < spammers.Count; i++)
+            {
+                if (spammers[i].Container != null &&
+                    (control == spammers[i].StatusIndicator ||
+                     spammers[i].Container.Contains(control)))
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         public class GamingTextBox : TextBox
@@ -2292,6 +2410,8 @@ namespace FToolByTratox
 
         public class GamingTabControl : TabControl
         {
+            private int lastSelectedIndex = -1;
+
             public GamingTabControl()
             {
                 this.SetStyle(ControlStyles.UserPaint, true);
@@ -2301,12 +2421,23 @@ namespace FToolByTratox
                 this.SizeMode = TabSizeMode.FillToRight;
                 this.ItemSize = new Size(0, 35);
                 this.DrawMode = TabDrawMode.OwnerDrawFixed;
+
+                // AJOUTER : Éviter les redraws inutiles
+                this.SelectedIndexChanged += (s, e) => {
+                    if (lastSelectedIndex != this.SelectedIndex)
+                    {
+                        lastSelectedIndex = this.SelectedIndex;
+                        this.Invalidate();
+                    }
+                };
             }
 
             protected override void OnPaint(PaintEventArgs e)
             {
                 e.Graphics.Clear(this.BackColor);
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                // OPTION : Désactiver l'antialiasing pour les onglets
+                // e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; // COMMENTER CETTE LIGNE
+
                 using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
                 {
                     e.Graphics.FillRectangle(bgBrush, 0, 0, this.Width, this.ItemSize.Height);
@@ -2327,7 +2458,8 @@ namespace FToolByTratox
 
                     if (isSelected)
                     {
-                        using (Pen neonPen = new Pen(Color.FromArgb(150, 255, 66, 77), 2))
+                        // Border simplifié
+                        using (Pen neonPen = new Pen(Color.FromArgb(100, 255, 66, 77), 1)) // Réduit épaisseur
                         {
                             e.Graphics.DrawRectangle(neonPen, tabRect.X, tabRect.Y, tabRect.Width - 1, tabRect.Height - 1);
                         }
@@ -2338,6 +2470,8 @@ namespace FToolByTratox
                         new Font("Segoe UI", 9, FontStyle.Bold), tabRect, textColor,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 }
+
+                // Remplir l'espace restant
                 int totalTabsWidth = 0;
                 for (int i = 0; i < this.TabCount; i++)
                 {
@@ -2351,24 +2485,6 @@ namespace FToolByTratox
                     {
                         e.Graphics.FillRectangle(remainingBrush, remainingRect);
                     }
-                }
-            }
-
-            protected override void WndProc(ref Message m)
-            {
-                if (m.Msg == 0x1328)
-                {
-                    base.WndProc(ref m);
-                    RECT rc = (RECT)m.GetLParam(typeof(RECT));
-                    rc.Left -= 2;
-                    rc.Right += 2;
-                    rc.Top -= 2;
-                    rc.Bottom += 2;
-                    Marshal.StructureToPtr(rc, m.LParam, true);
-                }
-                else
-                {
-                    base.WndProc(ref m);
                 }
             }
         }
@@ -2468,6 +2584,8 @@ namespace FToolByTratox
 
                 this.KeyDown += HotkeyCapture_KeyDown;
                 this.KeyUp += HotkeyCapture_KeyUp;
+                // Ajouter les événements de souris
+                this.MouseDown += HotkeyCapture_MouseDown;
             }
 
             private void HotkeyCapture_KeyDown(object sender, KeyEventArgs e)
@@ -2497,6 +2615,31 @@ namespace FToolByTratox
 
                 UpdatePreview();
                 e.Handled = true;
+            }
+
+            private void HotkeyCapture_MouseDown(object sender, MouseEventArgs e)
+            {
+                // Capturer les boutons de souris
+                switch (e.Button)
+                {
+                    case MouseButtons.XButton1:
+                        currentKey = Keys.XButton1;
+                        break;
+                    case MouseButtons.XButton2:
+                        currentKey = Keys.XButton2;
+                        break;
+                    case MouseButtons.Left:
+                        currentKey = Keys.LButton;
+                        break;
+                    case MouseButtons.Right:
+                        currentKey = Keys.RButton;
+                        break;
+                    case MouseButtons.Middle:
+                        currentKey = Keys.MButton;
+                        break;
+                }
+
+                UpdatePreview();
             }
 
             private void UpdatePreview()
