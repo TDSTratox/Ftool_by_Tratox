@@ -2,18 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using GDI = System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
-
-using SharpDX;
-using SharpDX.Direct2D1;
-using SharpDX.DXGI;
-using D2D1 = SharpDX.Direct2D1;
 
 namespace FToolByTratox
 {
@@ -150,63 +144,26 @@ namespace FToolByTratox
         private Dictionary<int, Keys> registeredHotKeys = new Dictionary<int, Keys>();
         private Point mouseLocation;
         private bool isDragging = false;
-        private readonly Color PrimaryBackground = GDI.Color.FromArgb(255, 26, 26, 35);
-        private readonly Color SecondaryBackground = GDI.Color.FromArgb(255, 35, 35, 50);
-        private readonly Color CardBackground = GDI.Color.FromArgb(255, 45, 45, 65);
-        private readonly Color AccentRed = GDI.Color.FromArgb(255, 255, 66, 77);
-        private readonly Color AccentBlue = GDI.Color.FromArgb(255, 66, 165, 245);
-        private readonly Color AccentGreen = GDI.Color.FromArgb(255, 76, 175, 80);
-        private readonly Color AccentPurple = GDI.Color.FromArgb(255, 171, 71, 188);
-        private readonly Color TextPrimary = GDI.Color.FromArgb(255, 255, 255, 255);
-        private readonly Color TextSecondary = GDI.Color.FromArgb(255, 190, 190, 190);
-        private readonly Color TextMuted = GDI.Color.FromArgb(255, 140, 140, 140);
-        private readonly Color BorderColor = GDI.Color.FromArgb(255, 65, 65, 85);
-        private readonly Color HoverColor = GDI.Color.FromArgb(255, 55, 55, 75);
-        private readonly Color WarningColor = GDI.Color.FromArgb(255, 255, 193, 7);
-        private readonly Color DangerColor = GDI.Color.FromArgb(255, 244, 67, 54);
+        private readonly Color PrimaryBackground = Color.FromArgb(255, 26, 26, 35);
+        private readonly Color SecondaryBackground = Color.FromArgb(255, 35, 35, 50);
+        private readonly Color CardBackground = Color.FromArgb(255, 45, 45, 65);
+        private readonly Color AccentRed = Color.FromArgb(255, 255, 66, 77);
+        private readonly Color AccentBlue = Color.FromArgb(255, 66, 165, 245);
+        private readonly Color AccentGreen = Color.FromArgb(255, 76, 175, 80);
+        private readonly Color AccentPurple = Color.FromArgb(255, 171, 71, 188);
+        private readonly Color TextPrimary = Color.FromArgb(255, 255, 255, 255);
+        private readonly Color TextSecondary = Color.FromArgb(255, 190, 190, 190);
+        private readonly Color TextMuted = Color.FromArgb(255, 140, 140, 140);
+        private readonly Color BorderColor = Color.FromArgb(255, 65, 65, 85);
+        private readonly Color HoverColor = Color.FromArgb(255, 55, 55, 75);
+        private readonly Color WarningColor = Color.FromArgb(255, 255, 193, 7);
+        private readonly Color DangerColor = Color.FromArgb(255, 244, 67, 54);
 
         public MainForm()
         {
-            InitializeDirect2D(); // <-- AJOUTER ICI
             InitializeKeyNames();
             InitializeComponent();
         }
-
-        private void InitializeDirect2D()
-        {
-            try
-            {
-                d2dFactory = new D2D1.Factory(FactoryType.MultiThreaded);
-                Debug.WriteLine("✅ DirectX 11 activé");
-            }
-            catch { }
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                // N'utilise PAS WS_EX_COMPOSITED avec DirectX
-                cp.ExStyle &= ~0x02000000;
-                // Active WS_CLIPCHILDREN pour éviter les conflits de rendu
-                cp.Style |= 0x02000000;
-                return cp;
-            }
-        }
-
-        protected override void OnHandleCreated(EventArgs e)
-        {
-            base.OnHandleCreated(e);
-
-            // Désactive la composition DWM pour ce formulaire
-            if (Environment.OSVersion.Version.Major >= 6)
-            {
-                int value = DWMNCRP_DISABLED;
-                DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref value, sizeof(int));
-            }
-        }
-
         protected override void WndProc(ref Message m)
         {
             switch (m.Msg)
@@ -315,36 +272,7 @@ namespace FToolByTratox
             LoadSettings();
             this.FormClosing += MainForm_FormClosing;
             this.Resize += MainForm_Resize;
-            this.ResumeLayout(false);
-            this.PerformLayout();
-        }
-
-        private void CreateRenderTarget(Control control)
-        {
-            if (d2dFactory == null || control == null || !control.IsHandleCreated) return;
-
-            try
-            {
-                var props = new RenderTargetProperties
-                {
-                    Type = RenderTargetType.Default,
-                    PixelFormat = new SharpDX.Direct2D1.PixelFormat(SharpDX.DXGI.Format.B8G8R8A8_UNorm, D2D1.AlphaMode.Premultiplied)
-                };
-
-                var hwndProps = new HwndRenderTargetProperties
-                {
-                    Hwnd = control.Handle,
-                    PixelSize = new SharpDX.Size2(control.Width, control.Height),
-                    PresentOptions = PresentOptions.Immediately
-                };
-
-                renderTarget = new WindowRenderTarget(d2dFactory, props, hwndProps);
-                Debug.WriteLine("✅ DirectX RenderTarget créé");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"⚠️ RenderTarget creation failed: {ex.Message}");
-            }
+            this.ResumeLayout();
         }
 
         private void UpdateSpammerHotkeyLabel(int spammerIndex, string hotkeyText)
@@ -470,16 +398,6 @@ namespace FToolByTratox
                 minimizeBtn.BringToFront();
                 titleBar.Invalidate();
             }
-
-            // AJOUT - Resize du RenderTarget DirectX
-            if (renderTarget != null && !renderTarget.IsDisposed)
-            {
-                try
-                {
-                    renderTarget.Resize(new SharpDX.Size2(this.Width, this.Height));
-                }
-                catch { }
-            }
         }
 
         private void MinimizeBtn_Click(object sender, EventArgs e)
@@ -573,18 +491,6 @@ namespace FToolByTratox
                 ForeColor = TextPrimary,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
-
-            // AJOUT - Pré-charger tous les onglets pour changement instantané
-            tabControl.SelectedIndexChanged += (s, e) =>
-            {
-                tabControl.SuspendLayout();
-                if (tabControl.SelectedTab != null)
-                {
-                    tabControl.SelectedTab.SuspendLayout();
-                    tabControl.SelectedTab.ResumeLayout(false);
-                }
-                tabControl.ResumeLayout(false);
-            };
             this.Controls.Add(tabControl);
 
             for (int i = 1; i <= 4; i++)
@@ -618,9 +524,6 @@ namespace FToolByTratox
                 }
 
                 tabControl.TabPages.Add(tab);
-
-                // AJOUT - Force le layout immédiatement
-                tab.PerformLayout();
             }
             CreateSettingsTab();
         }
@@ -1098,7 +1001,7 @@ namespace FToolByTratox
             {
                 Location = new Point(0, 0),
                 Size = new Size(450, 25),
-                BackColor = GDI.Color.FromArgb(50, AccentRed.R, AccentRed.G, AccentRed.B)
+                BackColor = Color.FromArgb(50, AccentRed.R, AccentRed.G, AccentRed.B)
             };
 
             Label cardTitle = new Label
@@ -1921,11 +1824,6 @@ namespace FToolByTratox
             statusUpdateTimer?.Dispose();
 
             Debug.WriteLine("FTool by Tratox closed properly");
-
-            // Cleanup DirectX
-            renderTarget?.Dispose();
-            d2dFactory?.Dispose();
-            foreach (var brush in brushCache.Values) brush?.Dispose();
         }
 
         #region Modern Gaming UI Controls
@@ -1976,14 +1874,6 @@ namespace FToolByTratox
 
             public GamingScrollablePanel()
             {
-                this.SetStyle(
-                ControlStyles.AllPaintingInWmPaint |
-                ControlStyles.UserPaint |
-                ControlStyles.OptimizedDoubleBuffer |
-                ControlStyles.ResizeRedraw,
-                    true
-                 );
-                this.DoubleBuffered = true;
                 this.AutoScroll = true;
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
@@ -2131,7 +2021,7 @@ namespace FToolByTratox
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ?
-                    GDI.Color.FromArgb(Math.Min(255, this.BackColor.R + 20),
+                    Color.FromArgb(Math.Min(255, this.BackColor.R + 20),
                                    Math.Min(255, this.BackColor.G + 20),
                                    Math.Min(255, this.BackColor.B + 20)) :
                     this.BackColor;
@@ -2235,9 +2125,9 @@ namespace FToolByTratox
             {
                 this.FlatStyle = FlatStyle.Flat;
                 this.FlatAppearance.BorderSize = 1;
-                this.FlatAppearance.BorderColor = GDI.Color.FromArgb(255, 65, 65, 85);
-                this.BackColor = GDI.Color.FromArgb(255, 35, 35, 50);
-                this.ForeColor = GDI.Color.FromArgb(255, 190, 190, 190);
+                this.FlatAppearance.BorderColor = Color.FromArgb(255, 65, 65, 85);
+                this.BackColor = Color.FromArgb(255, 35, 35, 50);
+                this.ForeColor = Color.FromArgb(255, 190, 190, 190);
                 this.Font = new Font("Segoe UI", 8, FontStyle.Regular);
                 this.SetStyle(ControlStyles.UserPaint, true);
                 this.MouseEnter += (s, e) => { isHovered = true; this.Invalidate(); };
@@ -2248,8 +2138,8 @@ namespace FToolByTratox
                 //pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
-                Color bgColor = isHovered ? GDI.Color.FromArgb(255, 45, 45, 65) : this.BackColor;
-                Color borderColor = isHovered ? GDI.Color.FromArgb(255, 171, 71, 188) : GDI.Color.FromArgb(255, 65, 65, 85);
+                Color bgColor = isHovered ? Color.FromArgb(255, 45, 45, 65) : this.BackColor;
+                Color borderColor = isHovered ? Color.FromArgb(255, 171, 71, 188) : Color.FromArgb(255, 65, 65, 85);
 
                 using (SolidBrush brush = new SolidBrush(bgColor))
                 {
@@ -2286,14 +2176,14 @@ namespace FToolByTratox
             {
                 //pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (SolidBrush clearBrush = new SolidBrush(GDI.Color.FromArgb(255, 26, 26, 35)))
+                using (SolidBrush clearBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
                 {
                     pevent.Graphics.FillRectangle(clearBrush, this.ClientRectangle);
                 }
 
                 if (isHovered)
                 {
-                    using (SolidBrush brush = new SolidBrush(GDI.Color.FromArgb(80, 255, 255, 255)))
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(80, 255, 255, 255)))
                     {
                         pevent.Graphics.FillEllipse(brush, 2, 2, Width - 4, Height - 4);
                     }
@@ -2324,7 +2214,7 @@ namespace FToolByTratox
 
                 Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
                 Color bgColor = isHovered ?
-                    GDI.Color.FromArgb(Math.Min(255, this.BackColor.R + 30),
+                    Color.FromArgb(Math.Min(255, this.BackColor.R + 30),
                                    Math.Min(255, this.BackColor.G + 30),
                                    Math.Min(255, this.BackColor.B + 30)) :
                     this.BackColor;
@@ -2355,12 +2245,12 @@ namespace FToolByTratox
 
                 Rectangle checkBoxRect = new Rectangle(0, 2, 16, 16);
                 Rectangle textRect = new Rectangle(22, 0, Width - 22, Height);
-                Color boxColor = this.Checked ? GDI.Color.FromArgb(255, 171, 71, 188) : GDI.Color.FromArgb(255, 65, 65, 85);
+                Color boxColor = this.Checked ? Color.FromArgb(255, 171, 71, 188) : Color.FromArgb(255, 65, 65, 85);
                 using (SolidBrush brush = new SolidBrush(boxColor))
                 {
                     pevent.Graphics.FillRectangle(brush, checkBoxRect);
                 }
-                using (Pen borderPen = new Pen(GDI.Color.FromArgb(255, 90, 90, 110), 1))
+                using (Pen borderPen = new Pen(Color.FromArgb(255, 90, 90, 110), 1))
                 {
                     pevent.Graphics.DrawRectangle(borderPen, checkBoxRect);
                 }
@@ -2410,7 +2300,7 @@ namespace FToolByTratox
                 int alpha = isActive ? 255 : 100;
 
                 using (SolidBrush brush = new SolidBrush(
-                    GDI.Color.FromArgb(alpha, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
+                    Color.FromArgb(alpha, this.BackColor.R, this.BackColor.G, this.BackColor.B)))
                 {
                     e.Graphics.FillEllipse(brush, 1, 1, Width - 2, Height - 2);
                 }
@@ -2506,7 +2396,7 @@ namespace FToolByTratox
                     e.Graphics.FillRectangle(brush, rect);
                 }
 
-                Color borderColor = isFocused ? GDI.Color.FromArgb(255, 255, 66, 77) : GDI.Color.FromArgb(255, 65, 65, 85);
+                Color borderColor = isFocused ? Color.FromArgb(255, 255, 66, 77) : Color.FromArgb(255, 65, 65, 85);
                 using (Pen pen = new Pen(borderColor, isFocused ? 2 : 1))
                 {
                     e.Graphics.DrawRectangle(pen, rect);
@@ -2524,19 +2414,10 @@ namespace FToolByTratox
 
             public GamingTabControl()
             {
-                // OPTIMISATIONS MAXIMALES POUR CHANGEMENT D'ONGLET INSTANTANÉ
-                this.SetStyle(
-                    ControlStyles.AllPaintingInWmPaint |
-                    ControlStyles.UserPaint |
-                    ControlStyles.OptimizedDoubleBuffer |
-                    ControlStyles.ResizeRedraw |
-                    ControlStyles.CacheText |
-                    ControlStyles.Opaque,
-                    true
-                );
-                this.DoubleBuffered = true;
-                this.UpdateStyles();
-
+                this.SetStyle(ControlStyles.UserPaint, true);
+                this.SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+                this.SetStyle(ControlStyles.DoubleBuffer, true);
+                this.SetStyle(ControlStyles.ResizeRedraw, true);
                 this.SizeMode = TabSizeMode.FillToRight;
                 this.ItemSize = new Size(0, 35);
                 this.DrawMode = TabDrawMode.OwnerDrawFixed;
@@ -2549,20 +2430,6 @@ namespace FToolByTratox
                         this.Invalidate();
                     }
                 };
-            }
-
-            protected override void OnSelecting(TabControlCancelEventArgs e)
-            {
-                // Pas d'animation, changement immédiat
-                base.OnSelecting(e);
-                this.SuspendLayout();
-            }
-
-            protected override void OnSelected(TabControlEventArgs e)
-            {
-                base.OnSelected(e);
-                this.ResumeLayout(false);
-                this.Refresh(); // Force le rendu immédiat
             }
 
             protected override void OnPaint(PaintEventArgs e)
@@ -2581,10 +2448,10 @@ namespace FToolByTratox
                     Rectangle tabRect = this.GetTabRect(i);
                     bool isSelected = (i == this.SelectedIndex);
 
-                    Color startColor = isSelected ? GDI.Color.FromArgb(255, 255, 66, 77) : GDI.Color.FromArgb(255, 45, 45, 65);
-                    Color endColor = isSelected ? GDI.Color.FromArgb(255, 200, 50, 60) : GDI.Color.FromArgb(255, 35, 35, 50);
+                    Color startColor = isSelected ? Color.FromArgb(255, 255, 66, 77) : Color.FromArgb(255, 45, 45, 65);
+                    Color endColor = isSelected ? Color.FromArgb(255, 200, 50, 60) : Color.FromArgb(255, 35, 35, 50);
 
-                    using (System.Drawing.Drawing2D.LinearGradientBrush brush = new System.Drawing.Drawing2D.LinearGradientBrush(tabRect, startColor, endColor, LinearGradientMode.Vertical))
+                    using (LinearGradientBrush brush = new LinearGradientBrush(tabRect, startColor, endColor, LinearGradientMode.Vertical))
                     {
                         e.Graphics.FillRectangle(brush, tabRect);
                     }
@@ -2598,7 +2465,7 @@ namespace FToolByTratox
                         }
                     }
 
-                    Color textColor = isSelected ? Color.White : GDI.Color.FromArgb(255, 190, 190, 190);
+                    Color textColor = isSelected ? Color.White : Color.FromArgb(255, 190, 190, 190);
                     TextRenderer.DrawText(e.Graphics, this.TabPages[i].Text,
                         new Font("Segoe UI", 9, FontStyle.Bold), tabRect, textColor,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -2614,7 +2481,7 @@ namespace FToolByTratox
                 if (totalTabsWidth < this.Width)
                 {
                     Rectangle remainingRect = new Rectangle(totalTabsWidth, 0, this.Width - totalTabsWidth, this.ItemSize.Height);
-                    using (SolidBrush remainingBrush = new SolidBrush(GDI.Color.FromArgb(255, 26, 26, 35)))
+                    using (SolidBrush remainingBrush = new SolidBrush(Color.FromArgb(255, 26, 26, 35)))
                     {
                         e.Graphics.FillRectangle(remainingBrush, remainingRect);
                     }
@@ -2657,7 +2524,7 @@ namespace FToolByTratox
                 this.FormBorderStyle = FormBorderStyle.FixedDialog;
                 this.MaximizeBox = false;
                 this.MinimizeBox = false;
-                this.BackColor = GDI.Color.FromArgb(255, 26, 26, 35);
+                this.BackColor = Color.FromArgb(255, 26, 26, 35);
                 this.ForeColor = Color.White;
                 this.KeyPreview = true;
 
@@ -2667,7 +2534,7 @@ namespace FToolByTratox
                     Location = new Point(20, 20),
                     Size = new Size(360, 40),
                     Font = new Font("Segoe UI", 10, FontStyle.Regular),
-                    ForeColor = GDI.Color.FromArgb(255, 190, 190, 190),
+                    ForeColor = Color.FromArgb(255, 190, 190, 190),
                     BackColor = Color.Transparent,
                     TextAlign = ContentAlignment.MiddleCenter
                 };
@@ -2678,7 +2545,7 @@ namespace FToolByTratox
                     Location = new Point(20, 80),
                     Size = new Size(360, 30),
                     Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                    ForeColor = GDI.Color.FromArgb(255, 171, 71, 188),
+                    ForeColor = Color.FromArgb(255, 171, 71, 188),
                     BackColor = Color.Transparent,
                     TextAlign = ContentAlignment.MiddleCenter,
                     BorderStyle = BorderStyle.FixedSingle
@@ -2689,7 +2556,7 @@ namespace FToolByTratox
                     Text = "Confirm",
                     Location = new Point(220, 130),
                     Size = new Size(80, 30),
-                    BackColor = GDI.Color.FromArgb(255, 76, 175, 80),
+                    BackColor = Color.FromArgb(255, 76, 175, 80),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     Font = new Font("Segoe UI", 9, FontStyle.Bold),
@@ -2703,7 +2570,7 @@ namespace FToolByTratox
                     Text = "Cancel",
                     Location = new Point(310, 130),
                     Size = new Size(80, 30),
-                    BackColor = GDI.Color.FromArgb(255, 244, 67, 54),
+                    BackColor = Color.FromArgb(255, 244, 67, 54),
                     ForeColor = Color.White,
                     FlatStyle = FlatStyle.Flat,
                     Font = new Font("Segoe UI", 9, FontStyle.Bold)
@@ -2831,12 +2698,12 @@ namespace FToolByTratox
         #endregion
         private Icon CreateModernIcon()
         {
-            GDI.Bitmap bitmap = new GDI.Bitmap(32, 32);
+            Bitmap bitmap = new Bitmap(32, 32);
             using (Graphics g = Graphics.FromImage(bitmap))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using (System.Drawing.Drawing2D.LinearGradientBrush gradBrush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                using (LinearGradientBrush gradBrush = new LinearGradientBrush(
                     new Rectangle(0, 0, 32, 32), AccentRed, AccentPurple, LinearGradientMode.Horizontal))
                 {
                     g.FillEllipse(gradBrush, 2, 2, 28, 28);
@@ -2858,7 +2725,7 @@ namespace FToolByTratox
     }
     public static class GraphicsExtensions
     {
-        public static void FillRoundedRectangle(this Graphics graphics, GDI.Brush brush, Rectangle rect, int radius)
+        public static void FillRoundedRectangle(this Graphics graphics, Brush brush, Rectangle rect, int radius)
         {
             using (GraphicsPath path = GetRoundedRectPath(rect, radius))
             {
