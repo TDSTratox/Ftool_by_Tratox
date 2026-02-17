@@ -252,7 +252,7 @@ namespace FToolByTratox
             this.SetStyle(ControlStyles.UserPaint, true);
             this.UpdateStyles();
 
-            this.Text = "FTool by Tratox v1.7";
+            this.Text = "FTool by Tratox v1.8";
             this.Size = new Size(520, 730);
             this.MinimumSize = new Size(520, 650);
             this.BackColor = PrimaryBackground;
@@ -336,7 +336,7 @@ namespace FToolByTratox
 
             Label versionLabel = new Label
             {
-                Text = "v1.7",
+                Text = "v1.8",
                 Font = new Font("Segoe UI", 8, FontStyle.Regular),
                 ForeColor = AccentBlue,
                 Location = new Point(190, 10),
@@ -1267,7 +1267,9 @@ namespace FToolByTratox
             // Mettre à jour le statut de connexion TOUTES les 2 itérations (4 secondes)
             if (updateCounter % 2 == 0)
             {
-                var processes = Process.GetProcessesByName("Neuz");
+                var processes = Process.GetProcessesByName("Neuz")
+                .Concat(Process.GetProcessesByName("client"))
+                .ToArray();
                 string newConnectionStatus;
 
                 if (processes.Length > 0)
@@ -1341,7 +1343,9 @@ namespace FToolByTratox
                 return;
             }
 
-            var processes = Process.GetProcessesByName("Neuz");
+            var processes = Process.GetProcessesByName("Neuz")
+                .Concat(Process.GetProcessesByName("client"))
+                .ToArray();
             IntPtr windowHandle = IntPtr.Zero;
             bool windowFound = false;
 
@@ -1543,7 +1547,9 @@ namespace FToolByTratox
             combo.Items.Clear();
             combo.Items.Add("Select Window");
 
-            var processes = Process.GetProcessesByName("Neuz");
+            var processes = Process.GetProcessesByName("Neuz")
+                .Concat(Process.GetProcessesByName("client"))
+                .ToArray();
             var windowTitles = new HashSet<string>();
 
             foreach (var proc in processes)
@@ -1572,7 +1578,9 @@ namespace FToolByTratox
 
         private void CheckWindowsExist(object sender, EventArgs e)
         {
-            var processes = Process.GetProcessesByName("Neuz");
+            var processes = Process.GetProcessesByName("Neuz")
+                .Concat(Process.GetProcessesByName("client"))
+                .ToArray();
             var activeWindows = new HashSet<string>(processes
                 .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle))
                 .Select(p => p.MainWindowTitle));
